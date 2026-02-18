@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-cd38209358e52d9321321394627233b5727c161e",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "userSourceNameMap": {
+    "contracts/WorkMarketplace.sol": "project/contracts/WorkMarketplace.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/WorkMarketplace.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\ncontract WorkMarketplace {\n    struct Job {\n        uint256 jobId;\n        address client;\n        string title;\n        string description;\n        string skills;\n        uint256 budget;\n        bool isActive;\n        bool isCompleted;\n        address selectedWorker;\n    }\n\n    struct Application {\n        address worker;\n        string coverLetter;\n        string workHistory;\n        uint256 timestamp;\n    }\n\n    struct Milestone {\n        string description;\n        uint256 amount;\n        bool isCompleted;\n        bool isPaid;\n    }\n\n    uint256 public jobCounter;\n    \n    mapping(uint256 => Job) public jobs;\n    mapping(uint256 => Application[]) public jobApplications;\n    mapping(uint256 => Milestone[]) public jobMilestones;\n    mapping(uint256 => uint256) public escrowBalance;\n    mapping(uint256 => bool) public workSubmitted;\n\n    event JobPosted(uint256 indexed jobId, address indexed client, string title, uint256 budget);\n    event ApplicationSubmitted(uint256 indexed jobId, address indexed worker);\n    event WorkerSelected(uint256 indexed jobId, address indexed worker);\n    event EscrowFunded(uint256 indexed jobId, uint256 amount);\n    event WorkSubmitted(uint256 indexed jobId, address indexed worker);\n    event PaymentReleased(uint256 indexed jobId, address indexed worker, uint256 amount);\n    event MilestoneAdded(uint256 indexed jobId, uint256 milestoneIndex);\n    event MilestoneCompleted(uint256 indexed jobId, uint256 milestoneIndex);\n\n    function postJob(\n        string memory _title,\n        string memory _description,\n        string memory _skills,\n        uint256 _budget\n    ) external returns (uint256) {\n        jobCounter++;\n        \n        jobs[jobCounter] = Job({\n            jobId: jobCounter,\n            client: msg.sender,\n            title: _title,\n            description: _description,\n            skills: _skills,\n            budget: _budget,\n            isActive: true,\n            isCompleted: false,\n            selectedWorker: address(0)\n        });\n\n        emit JobPosted(jobCounter, msg.sender, _title, _budget);\n        return jobCounter;\n    }\n\n    function applyToJob(\n        uint256 _jobId,\n        string memory _coverLetter,\n        string memory _workHistory\n    ) external {\n        require(jobs[_jobId].isActive, \"Job is not active\");\n        require(jobs[_jobId].selectedWorker == address(0), \"Worker already selected\");\n\n        jobApplications[_jobId].push(Application({\n            worker: msg.sender,\n            coverLetter: _coverLetter,\n            workHistory: _workHistory,\n            timestamp: block.timestamp\n        }));\n\n        emit ApplicationSubmitted(_jobId, msg.sender);\n    }\n\n    function fundEscrow(uint256 _jobId) external payable {\n        require(jobs[_jobId].client == msg.sender, \"Only client can fund escrow\");\n        require(msg.value == jobs[_jobId].budget, \"Must match job budget\");\n        \n        escrowBalance[_jobId] += msg.value;\n        emit EscrowFunded(_jobId, msg.value);\n    }\n\n    function selectWorker(uint256 _jobId, address _worker) external {\n        require(jobs[_jobId].client == msg.sender, \"Only client can select worker\");\n        require(jobs[_jobId].isActive, \"Job is not active\");\n        require(escrowBalance[_jobId] > 0, \"Escrow must be funded first\");\n\n        jobs[_jobId].selectedWorker = _worker;\n        emit WorkerSelected(_jobId, _worker);\n    }\n\n    function addMilestone(\n        uint256 _jobId,\n        string memory _description,\n        uint256 _amount\n    ) external {\n        require(jobs[_jobId].client == msg.sender, \"Only client can add milestones\");\n        \n        jobMilestones[_jobId].push(Milestone({\n            description: _description,\n            amount: _amount,\n            isCompleted: false,\n            isPaid: false\n        }));\n\n        emit MilestoneAdded(_jobId, jobMilestones[_jobId].length - 1);\n    }\n\n    function submitWork(uint256 _jobId) external {\n        require(jobs[_jobId].selectedWorker == msg.sender, \"Only selected worker can submit\");\n        require(!workSubmitted[_jobId], \"Work already submitted\");\n\n        workSubmitted[_jobId] = true;\n        emit WorkSubmitted(_jobId, msg.sender);\n    }\n\n    function releasePayment(uint256 _jobId) external {\n        require(jobs[_jobId].client == msg.sender, \"Only client can release payment\");\n        require(workSubmitted[_jobId], \"Work not submitted yet\");\n        require(escrowBalance[_jobId] > 0, \"No funds in escrow\");\n\n        uint256 amount = escrowBalance[_jobId];\n        address worker = jobs[_jobId].selectedWorker;\n        \n        escrowBalance[_jobId] = 0;\n        jobs[_jobId].isCompleted = true;\n        jobs[_jobId].isActive = false;\n\n        payable(worker).transfer(amount);\n        emit PaymentReleased(_jobId, worker, amount);\n    }\n\n    function releaseMilestonePayment(uint256 _jobId, uint256 _milestoneIndex) external {\n        require(jobs[_jobId].client == msg.sender, \"Only client can release payment\");\n        require(_milestoneIndex < jobMilestones[_jobId].length, \"Invalid milestone\");\n        \n        Milestone storage milestone = jobMilestones[_jobId][_milestoneIndex];\n        require(!milestone.isPaid, \"Milestone already paid\");\n        require(escrowBalance[_jobId] >= milestone.amount, \"Insufficient escrow balance\");\n\n        milestone.isCompleted = true;\n        milestone.isPaid = true;\n        escrowBalance[_jobId] -= milestone.amount;\n\n        payable(jobs[_jobId].selectedWorker).transfer(milestone.amount);\n        emit MilestoneCompleted(_jobId, _milestoneIndex);\n    }\n\n    function getApplications(uint256 _jobId) external view returns (Application[] memory) {\n        return jobApplications[_jobId];\n    }\n\n    function getMilestones(uint256 _jobId) external view returns (Milestone[] memory) {\n        return jobMilestones[_jobId];\n    }\n\n    function getJob(uint256 _jobId) external view returns (Job memory) {\n        return jobs[_jobId];\n    }\n}\n"
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { useAccount, useWalletClient } from 'wagmi';
+import { useAccount, useWalletClient, usePublicClient } from 'wagmi';
 import { parseEther } from 'ethers';
 import { getContract } from '@/lib/contracts';
 
@@ -13,6 +13,7 @@ interface PostJobModalProps {
 export function PostJobModal({ onClose }: PostJobModalProps) {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -28,8 +29,8 @@ export function PostJobModal({ onClose }: PostJobModalProps) {
 
     try {
       setLoading(true);
-      
-      const contract = getContract(walletClient);
+
+      const contract: any = getContract(walletClient);
       const budgetWei = parseEther(formData.budget);
 
       const hash = await contract.write.postJob([
@@ -41,7 +42,9 @@ export function PostJobModal({ onClose }: PostJobModalProps) {
       ]);
 
       // Wait for transaction
-      await walletClient.waitForTransactionReceipt({ hash });
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash });
+      }
 
       alert('Job posted successfully!');
       onClose();

@@ -1,19 +1,70 @@
-import { getContract as viemGetContract } from 'viem';
+import { getContract as viemGetContract, type PublicClient, type WalletClient } from 'viem';
+import addresses from './contract-addresses.json';
 import JobMarketplaceABI from './abis/JobMarketplace.json';
+import ArbitrationABI from './abis/Arbitration.json';
+import ReputationSystemABI from './abis/ReputationSystem.json';
+import WorkerRegistryABI from './abis/WorkerRegistry.json';
+import NegotiationABI from './abis/Negotiation.json';
+import JobEscrowABI from './abis/JobEscrow.json';
 
-// Update these addresses after deployment
-export const CONTRACT_ADDRESSES = {
-  JobMarketplace: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', // Local hardhat
-  Arbitration: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-  ArbitrationToken: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+export const CONTRACT_ADDRESSES = addresses as {
+  ArbitrationToken: `0x${string}`;
+  Arbitration: `0x${string}`;
+  ReputationSystem: `0x${string}`;
+  WorkerRegistry: `0x${string}`;
+  Negotiation: `0x${string}`;
+  JobMarketplace: `0x${string}`;
 };
 
-export function getContract(client: any) {
+// --- Typed factory helpers ---
+
+export function getContract(client: PublicClient | WalletClient) {
   return viemGetContract({
-    address: CONTRACT_ADDRESSES.JobMarketplace as `0x${string}`,
+    address: CONTRACT_ADDRESSES.JobMarketplace,
     abi: JobMarketplaceABI.abi,
     client,
   });
 }
 
-export { JobMarketplaceABI };
+export function getArbitrationContract(client: PublicClient | WalletClient) {
+  return viemGetContract({
+    address: CONTRACT_ADDRESSES.Arbitration,
+    abi: ArbitrationABI.abi,
+    client,
+  });
+}
+
+export function getReputationContract(client: PublicClient | WalletClient) {
+  return viemGetContract({
+    address: CONTRACT_ADDRESSES.ReputationSystem,
+    abi: ReputationSystemABI.abi,
+    client,
+  });
+}
+
+export function getWorkerRegistryContract(client: PublicClient | WalletClient) {
+  return viemGetContract({
+    address: CONTRACT_ADDRESSES.WorkerRegistry,
+    abi: WorkerRegistryABI.abi,
+    client,
+  });
+}
+
+export function getNegotiationContract(client: PublicClient | WalletClient) {
+  return viemGetContract({
+    address: CONTRACT_ADDRESSES.Negotiation,
+    abi: NegotiationABI.abi,
+    client,
+  });
+}
+
+export function getEscrowContract(client: PublicClient | WalletClient, escrowAddress: `0x${string}`) {
+  return viemGetContract({
+    address: escrowAddress,
+    abi: JobEscrowABI.abi,
+    client,
+  });
+}
+
+// Re-export ABIs for convenience
+export { JobMarketplaceABI, ArbitrationABI, ReputationSystemABI, WorkerRegistryABI, NegotiationABI, JobEscrowABI };

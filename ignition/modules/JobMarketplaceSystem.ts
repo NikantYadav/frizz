@@ -8,13 +8,37 @@ const JobMarketplaceSystemModule = buildModule("JobMarketplaceSystemModule", (m)
   // Deploy Arbitration contract
   const arbitration = m.contract("Arbitration", [arbitrationToken]);
 
-  // Deploy JobMarketplace contract
-  const jobMarketplace = m.contract("JobMarketplace", [arbitration]);
-  
+  // Deploy ReputationSystem
+  const reputationSystem = m.contract("ReputationSystem");
+
+  // Deploy WorkerRegistry
+  const workerRegistry = m.contract("WorkerRegistry");
+
+  // Deploy Negotiation
+  const negotiation = m.contract("Negotiation");
+
+  // Deploy JobMarketplace contract with all dependencies
+  const jobMarketplace = m.contract("JobMarketplace", [
+    arbitration,
+    reputationSystem,
+    workerRegistry,
+    negotiation
+  ]);
+
   // Set marketplace address in arbitration contract
   m.call(arbitration, "setMarketplace", [jobMarketplace]);
 
-  return { arbitrationToken, arbitration, jobMarketplace };
+  // Authorize marketplace in ReputationSystem
+  m.call(reputationSystem, "setAuthorizedCaller", [jobMarketplace, true]);
+
+  return {
+    arbitrationToken,
+    arbitration,
+    reputationSystem,
+    workerRegistry,
+    negotiation,
+    jobMarketplace
+  };
 });
 
 export default JobMarketplaceSystemModule;

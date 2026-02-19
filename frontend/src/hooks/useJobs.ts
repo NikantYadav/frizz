@@ -15,7 +15,7 @@ export function useJobs(activeTab: string, address?: string) {
       setLoading(true);
       setError(null);
 
-      const contract = getContract(publicClient);
+      const contract: any = getContract(publicClient);
 
       let jobIds: bigint[] = [];
 

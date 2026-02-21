@@ -8,8 +8,6 @@ export interface ReputationData {
     disputeWins: number;
     disputeLosses: number;
     totalVolume: string;
-    ratingsSum: number;
-    ratingCount: number;
 }
 
 export function useReputation(address?: string) {
@@ -34,8 +32,6 @@ export function useReputation(address?: string) {
                 disputeWins: Number(rep.disputeWins),
                 disputeLosses: Number(rep.disputeLosses),
                 totalVolume: (Number(rep.totalVolume) / 1e18).toFixed(4),
-                ratingsSum: Number(rep.ratingsSum),
-                ratingCount: Number(rep.ratingCount),
             });
         } catch (err: any) {
             console.error('Error fetching reputation:', err);

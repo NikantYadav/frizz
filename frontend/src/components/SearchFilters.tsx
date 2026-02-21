@@ -2,14 +2,13 @@
 "use client";
 
 import { useState } from "react";
-import { Filter, Star, DollarSign } from "lucide-react";
+import { Filter, DollarSign } from "lucide-react";
 
 interface SearchFiltersProps {
     onFilterChange: (filters: any) => void;
 }
 
 export default function SearchFilters({ onFilterChange }: SearchFiltersProps) {
-    const [minRating, setMinRating] = useState(0);
     const [maxRate, setMaxRate] = useState(100);
     const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
 
@@ -21,7 +20,7 @@ export default function SearchFilters({ onFilterChange }: SearchFiltersProps) {
             : [...selectedSkills, skill];
         setSelectedSkills(newSkills);
         // Trigger update
-        onFilterChange({ minRating, maxRate, skills: newSkills });
+        onFilterChange({ maxRate, skills: newSkills });
     };
 
     return (
@@ -41,8 +40,8 @@ export default function SearchFilters({ onFilterChange }: SearchFiltersProps) {
                                 key={skill}
                                 onClick={() => toggleSkill(skill)}
                                 className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${selectedSkills.includes(skill)
-                                        ? "bg-blue-100 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300"
-                                        : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-400"
+                                    ? "bg-blue-100 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300"
+                                    : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 dark:bg-gray-700/50 dark:border-gray-600 dark:text-gray-400"
                                     }`}
                             >
                                 {skill}
@@ -70,30 +69,8 @@ export default function SearchFilters({ onFilterChange }: SearchFiltersProps) {
                         <span>{maxRate} ETH</span>
                     </div>
                 </div>
-
-                {/* Rating */}
-                <div>
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                        <Star className="w-4 h-4 text-yellow-500" /> Min Rating
-                    </h4>
-                    <div className="space-y-2">
-                        {[4, 3, 2, 1].map(rating => (
-                            <label key={rating} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
-                                <input
-                                    type="radio"
-                                    name="rating"
-                                    checked={minRating === rating}
-                                    onChange={() => setMinRating(rating)}
-                                    className="text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="flex items-center">
-                                    {rating}+ Stars
-                                </span>
-                            </label>
-                        ))}
-                    </div>
-                </div>
             </div>
         </div>
     );
 }
+

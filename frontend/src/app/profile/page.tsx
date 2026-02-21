@@ -7,12 +7,16 @@ import ReputationView from "@/components/ReputationView";
 import { useAccount } from "wagmi";
 import { useReputation } from "@/hooks/useReputation";
 import { useWorkerProfile } from "@/hooks/useWorkerProfile";
+import { Turnstile } from '@marsidev/react-turnstile';
 
 export default function ProfilePage() {
     const { address, isConnected } = useAccount();
     const { reputation, loading: repLoading } = useReputation(address);
     const { saveProfile, loading: saving, error: saveError } = useWorkerProfile();
     const [isEditing, setIsEditing] = useState(false);
+
+    // Cloudflare Turnstile token
+    const [turnstileToken, setTurnstileToken] = useState<string>("");
 
     const [profile, setProfile] = useState({
         name: "",
@@ -23,7 +27,11 @@ export default function ProfilePage() {
 
     const handleSave = async () => {
         try {
-            await saveProfile(profile.name, profile.bio, profile.skills, profile.hourlyRate);
+            if (!turnstileToken) {
+                alert("Please complete the captcha.");
+                return;
+            }
+            await saveProfile(profile.name, profile.bio, profile.skills, profile.hourlyRate, turnstileToken);
             setIsEditing(false);
         } catch (e) {
             // error shown via saveError
@@ -120,6 +128,17 @@ export default function ProfilePage() {
                                         onChange={e => setProfile({ ...profile, hourlyRate: e.target.value })}
                                     />
                                 </div>
+
+                                {isEditing && (
+                                    <div className="mt-6 flex justify-center">
+                                        <Turnstile
+                                            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                                            onSuccess={(token) => setTurnstileToken(token)}
+                                            onError={() => setTurnstileToken("")}
+                                            onExpire={() => setTurnstileToken("")}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

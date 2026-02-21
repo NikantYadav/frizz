@@ -60,6 +60,7 @@ export declare namespace JobMarketplace {
     workSubmitted: boolean;
     disputeId: BigNumberish;
     isDisputed: boolean;
+    isCancelled: boolean;
   };
 
   export type JobStructOutput = [
@@ -78,7 +79,8 @@ export declare namespace JobMarketplace {
     workSubmissionHash: string,
     workSubmitted: boolean,
     disputeId: bigint,
-    isDisputed: boolean
+    isDisputed: boolean,
+    isCancelled: boolean
   ] & {
     jobId: bigint;
     client: string;
@@ -96,6 +98,7 @@ export declare namespace JobMarketplace {
     workSubmitted: boolean;
     disputeId: bigint;
     isDisputed: boolean;
+    isCancelled: boolean;
   };
 }
 
@@ -110,7 +113,6 @@ export interface JobMarketplaceInterface extends Interface {
       | "arbitration"
       | "cancelJob"
       | "clientJobs"
-      | "clientRated"
       | "fundJobEscrow"
       | "getActiveJobCount"
       | "getActiveJobs"
@@ -137,7 +139,6 @@ export interface JobMarketplaceInterface extends Interface {
       | "usdc"
       | "workerApplications"
       | "workerJobs"
-      | "workerRated"
       | "workerRegistry"
   ): FunctionFragment;
 
@@ -186,10 +187,6 @@ export interface JobMarketplaceInterface extends Interface {
   encodeFunctionData(
     functionFragment: "clientJobs",
     values: [AddressLike, BigNumberish]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "clientRated",
-    values: [BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "fundJobEscrow",
@@ -287,10 +284,6 @@ export interface JobMarketplaceInterface extends Interface {
     values: [AddressLike, BigNumberish]
   ): string;
   encodeFunctionData(
-    functionFragment: "workerRated",
-    values: [BigNumberish]
-  ): string;
-  encodeFunctionData(
     functionFragment: "workerRegistry",
     values?: undefined
   ): string;
@@ -318,10 +311,6 @@ export interface JobMarketplaceInterface extends Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "cancelJob", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "clientJobs", data: BytesLike): Result;
-  decodeFunctionResult(
-    functionFragment: "clientRated",
-    data: BytesLike
-  ): Result;
   decodeFunctionResult(
     functionFragment: "fundJobEscrow",
     data: BytesLike
@@ -393,10 +382,6 @@ export interface JobMarketplaceInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "workerJobs", data: BytesLike): Result;
-  decodeFunctionResult(
-    functionFragment: "workerRated",
-    data: BytesLike
-  ): Result;
   decodeFunctionResult(
     functionFragment: "workerRegistry",
     data: BytesLike
@@ -623,8 +608,6 @@ export interface JobMarketplace extends BaseContract {
     "view"
   >;
 
-  clientRated: TypedContractMethod<[arg0: BigNumberish], [boolean], "view">;
-
   fundJobEscrow: TypedContractMethod<
     [_jobId: BigNumberish],
     [void],
@@ -705,6 +688,7 @@ export interface JobMarketplace extends BaseContract {
         string,
         boolean,
         bigint,
+        boolean,
         boolean
       ] & {
         jobId: bigint;
@@ -723,6 +707,7 @@ export interface JobMarketplace extends BaseContract {
         workSubmitted: boolean;
         disputeId: bigint;
         isDisputed: boolean;
+        isCancelled: boolean;
       }
     ],
     "view"
@@ -802,8 +787,6 @@ export interface JobMarketplace extends BaseContract {
     "view"
   >;
 
-  workerRated: TypedContractMethod<[arg0: BigNumberish], [boolean], "view">;
-
   workerRegistry: TypedContractMethod<[], [string], "view">;
 
   getFunction<T extends ContractMethod = ContractMethod>(
@@ -842,9 +825,6 @@ export interface JobMarketplace extends BaseContract {
     [bigint],
     "view"
   >;
-  getFunction(
-    nameOrSignature: "clientRated"
-  ): TypedContractMethod<[arg0: BigNumberish], [boolean], "view">;
   getFunction(
     nameOrSignature: "fundJobEscrow"
   ): TypedContractMethod<[_jobId: BigNumberish], [void], "nonpayable">;
@@ -922,6 +902,7 @@ export interface JobMarketplace extends BaseContract {
         string,
         boolean,
         bigint,
+        boolean,
         boolean
       ] & {
         jobId: bigint;
@@ -940,6 +921,7 @@ export interface JobMarketplace extends BaseContract {
         workSubmitted: boolean;
         disputeId: bigint;
         isDisputed: boolean;
+        isCancelled: boolean;
       }
     ],
     "view"
@@ -1020,9 +1002,6 @@ export interface JobMarketplace extends BaseContract {
     [bigint],
     "view"
   >;
-  getFunction(
-    nameOrSignature: "workerRated"
-  ): TypedContractMethod<[arg0: BigNumberish], [boolean], "view">;
   getFunction(
     nameOrSignature: "workerRegistry"
   ): TypedContractMethod<[], [string], "view">;

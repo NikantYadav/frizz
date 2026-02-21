@@ -48,9 +48,11 @@ export interface ArbitrationInterface extends Interface {
       | "commitVote"
       | "completeJurorSelection"
       | "createDispute"
+      | "deployer"
       | "disputeCounter"
       | "disputes"
       | "finalizeDispute"
+      | "getAppealPeriodEnd"
       | "getDisputeResult"
       | "getEvidence"
       | "getEvidenceCount"
@@ -63,6 +65,7 @@ export interface ArbitrationInterface extends Interface {
       | "setMarketplace"
       | "setRandomnessOracle"
       | "setTreasury"
+      | "setWorkerRegistry"
       | "stakeAsJuror"
       | "submitEvidence"
       | "treasury"
@@ -70,6 +73,7 @@ export interface ArbitrationInterface extends Interface {
       | "usdc"
       | "validCategories"
       | "withdrawRewards"
+      | "workerRegistry"
   ): FunctionFragment;
 
   getEvent(
@@ -181,6 +185,7 @@ export interface ArbitrationInterface extends Interface {
     functionFragment: "createDispute",
     values: [BigNumberish, AddressLike, AddressLike, BigNumberish, BigNumberish]
   ): string;
+  encodeFunctionData(functionFragment: "deployer", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "disputeCounter",
     values?: undefined
@@ -191,6 +196,10 @@ export interface ArbitrationInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "finalizeDispute",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getAppealPeriodEnd",
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
@@ -239,6 +248,10 @@ export interface ArbitrationInterface extends Interface {
     values: [AddressLike]
   ): string;
   encodeFunctionData(
+    functionFragment: "setWorkerRegistry",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
     functionFragment: "stakeAsJuror",
     values: [BigNumberish[]]
   ): string;
@@ -256,6 +269,10 @@ export interface ArbitrationInterface extends Interface {
   encodeFunctionData(
     functionFragment: "withdrawRewards",
     values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "workerRegistry",
+    values?: undefined
   ): string;
 
   decodeFunctionResult(
@@ -340,6 +357,7 @@ export interface ArbitrationInterface extends Interface {
     functionFragment: "createDispute",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "deployer", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "disputeCounter",
     data: BytesLike
@@ -347,6 +365,10 @@ export interface ArbitrationInterface extends Interface {
   decodeFunctionResult(functionFragment: "disputes", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "finalizeDispute",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getAppealPeriodEnd",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -392,6 +414,10 @@ export interface ArbitrationInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "setWorkerRegistry",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "stakeAsJuror",
     data: BytesLike
   ): Result;
@@ -408,6 +434,10 @@ export interface ArbitrationInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "withdrawRewards",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "workerRegistry",
     data: BytesLike
   ): Result;
 }
@@ -876,6 +906,8 @@ export interface Arbitration extends BaseContract {
     "nonpayable"
   >;
 
+  deployer: TypedContractMethod<[], [string], "view">;
+
   disputeCounter: TypedContractMethod<[], [bigint], "view">;
 
   disputes: TypedContractMethod<
@@ -942,6 +974,12 @@ export interface Arbitration extends BaseContract {
     [_disputeId: BigNumberish],
     [void],
     "nonpayable"
+  >;
+
+  getAppealPeriodEnd: TypedContractMethod<
+    [_disputeId: BigNumberish],
+    [bigint],
+    "view"
   >;
 
   getDisputeResult: TypedContractMethod<
@@ -1018,6 +1056,12 @@ export interface Arbitration extends BaseContract {
     "nonpayable"
   >;
 
+  setWorkerRegistry: TypedContractMethod<
+    [_registry: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+
   stakeAsJuror: TypedContractMethod<
     [_categoryIds: BigNumberish[]],
     [void],
@@ -1043,6 +1087,8 @@ export interface Arbitration extends BaseContract {
     [void],
     "nonpayable"
   >;
+
+  workerRegistry: TypedContractMethod<[], [string], "view">;
 
   getFunction<T extends ContractMethod = ContractMethod>(
     key: string | FunctionFragment
@@ -1129,6 +1175,9 @@ export interface Arbitration extends BaseContract {
     "nonpayable"
   >;
   getFunction(
+    nameOrSignature: "deployer"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
     nameOrSignature: "disputeCounter"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
@@ -1196,6 +1245,9 @@ export interface Arbitration extends BaseContract {
     nameOrSignature: "finalizeDispute"
   ): TypedContractMethod<[_disputeId: BigNumberish], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "getAppealPeriodEnd"
+  ): TypedContractMethod<[_disputeId: BigNumberish], [bigint], "view">;
+  getFunction(
     nameOrSignature: "getDisputeResult"
   ): TypedContractMethod<
     [_disputeId: BigNumberish],
@@ -1258,6 +1310,9 @@ export interface Arbitration extends BaseContract {
     nameOrSignature: "setTreasury"
   ): TypedContractMethod<[_treasury: AddressLike], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "setWorkerRegistry"
+  ): TypedContractMethod<[_registry: AddressLike], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "stakeAsJuror"
   ): TypedContractMethod<[_categoryIds: BigNumberish[]], [void], "nonpayable">;
   getFunction(
@@ -1282,6 +1337,9 @@ export interface Arbitration extends BaseContract {
   getFunction(
     nameOrSignature: "withdrawRewards"
   ): TypedContractMethod<[_amount: BigNumberish], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "workerRegistry"
+  ): TypedContractMethod<[], [string], "view">;
 
   getEvent(
     key: "CategoryAdded"

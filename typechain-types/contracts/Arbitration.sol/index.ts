@@ -3,3 +3,4 @@
 /* eslint-disable */
 export type { Arbitration } from "./Arbitration";
 export type { IRandomnessOracle } from "./IRandomnessOracle";
+export type { IWorkerRegistry } from "./IWorkerRegistry";

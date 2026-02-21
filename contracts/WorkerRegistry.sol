@@ -8,12 +8,14 @@ pragma solidity ^0.8.0;
  * Skills are stored in IPFS metadata only - not duplicated on-chain
  */
 contract WorkerRegistry {
-    uint256 public constant MIN_HOURLY_RATE = 1 * 10**6; // 1 USDC minimum
+    uint256 public constant MIN_HOURLY_RATE = 1 * 10 ** 6; // 1 USDC minimum
 
     // EIP-712 Domain
     bytes32 public immutable DOMAIN_SEPARATOR;
-    bytes32 public constant REGISTER_TYPEHASH = 
-        keccak256("RegisterWorker(address worker,bytes32 ipfsHash,uint256 hourlyRate,uint256 nonce,uint256 deadline)");
+    bytes32 public constant REGISTER_TYPEHASH =
+        keccak256(
+            "RegisterWorker(address worker,bytes32 ipfsHash,uint256 hourlyRate,uint256 nonce,uint256 deadline)"
+        );
 
     struct Profile {
         bytes32 ipfsHash; // IPFS multihash digest (sha2-256, without 0x1220 prefix)
@@ -26,7 +28,7 @@ contract WorkerRegistry {
     mapping(address => uint256) public nonces; // Replay protection
     address[] public allWorkers;
     uint256 public activeWorkerCount; // O(1) counter
-    
+
     address public registrationSigner; // Backend signer address (captcha verification)
     address public pendingSigner; // Pending signer for 2-step transfer
     address public admin; // Admin can initiate signer changes (use multisig in production)
@@ -42,7 +44,10 @@ contract WorkerRegistry {
         uint256 hourlyRate
     );
     event ProfileDeregistered(address indexed worker);
-    event SignerUpdateProposed(address indexed currentSigner, address indexed proposedSigner);
+    event SignerUpdateProposed(
+        address indexed currentSigner,
+        address indexed proposedSigner
+    );
     event SignerUpdated(address indexed oldSigner, address indexed newSigner);
     event AdminTransferred(address indexed oldAdmin, address indexed newAdmin);
 
@@ -51,11 +56,13 @@ contract WorkerRegistry {
         require(_admin != address(0), "Invalid admin");
         registrationSigner = _registrationSigner;
         admin = _admin;
-        
+
         // EIP-712 Domain Separator
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
                 keccak256(bytes("WorkerRegistry")),
                 keccak256(bytes("1")),
                 block.chainid,
@@ -72,7 +79,7 @@ contract WorkerRegistry {
         require(msg.sender == admin, "Only admin");
         require(_newSigner != address(0), "Invalid signer");
         require(_newSigner != registrationSigner, "Already current signer");
-        
+
         pendingSigner = _newSigner;
         emit SignerUpdateProposed(registrationSigner, _newSigner);
     }
@@ -83,11 +90,11 @@ contract WorkerRegistry {
      */
     function acceptSignerRole() external {
         require(msg.sender == pendingSigner, "Not pending signer");
-        
+
         address oldSigner = registrationSigner;
         registrationSigner = pendingSigner;
         pendingSigner = address(0);
-        
+
         emit SignerUpdated(oldSigner, registrationSigner);
     }
 
@@ -97,10 +104,10 @@ contract WorkerRegistry {
     function transferAdmin(address _newAdmin) external {
         require(msg.sender == admin, "Only admin");
         require(_newAdmin != address(0), "Invalid admin");
-        
+
         address oldAdmin = admin;
         admin = _newAdmin;
-        
+
         emit AdminTransferred(oldAdmin, _newAdmin);
     }
 
@@ -134,14 +141,14 @@ contract WorkerRegistry {
                 _deadline
             )
         );
-        
+
         bytes32 digest = keccak256(
             abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
         );
-        
+
         address signer = _recoverSigner(digest, _signature);
         require(signer == registrationSigner, "Invalid signature");
-        
+
         // Increment nonce to prevent replay
         nonces[msg.sender]++;
 
@@ -151,7 +158,9 @@ contract WorkerRegistry {
         profiles[msg.sender] = Profile({
             ipfsHash: _ipfsHash,
             hourlyRate: _hourlyRate,
-            registeredAt: isNew ? block.timestamp : profiles[msg.sender].registeredAt,
+            registeredAt: isNew
+                ? block.timestamp
+                : profiles[msg.sender].registeredAt,
             isActive: true
         });
 
@@ -170,24 +179,34 @@ contract WorkerRegistry {
     /**
      * @dev Recover signer from signature
      */
-    function _recoverSigner(bytes32 _digest, bytes memory _signature) 
-        internal 
-        pure 
-        returns (address) 
-    {
+    function _recoverSigner(
+        bytes32 _digest,
+        bytes memory _signature
+    ) internal pure returns (address) {
         require(_signature.length == 65, "Invalid signature length");
-        
+
         bytes32 r;
         bytes32 s;
         uint8 v;
-        
+
         assembly {
             r := mload(add(_signature, 32))
             s := mload(add(_signature, 64))
             v := byte(0, mload(add(_signature, 96)))
         }
-        
-        return ecrecover(_digest, v, r, s);
+
+        // EIP-2: Prevent signature malleability
+        require(
+            uint256(s) <=
+                0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0,
+            "Invalid signature s value"
+        );
+        require(v == 27 || v == 28, "Invalid signature v value");
+
+        address recoveredSigner = ecrecover(_digest, v, r, s);
+        require(recoveredSigner != address(0), "Invalid signature");
+
+        return recoveredSigner;
     }
 
     /**
@@ -198,10 +217,10 @@ contract WorkerRegistry {
     function deregisterProfile() external {
         require(profiles[msg.sender].registeredAt > 0, "Profile not found");
         require(profiles[msg.sender].isActive, "Already deregistered");
-        
+
         profiles[msg.sender].isActive = false;
         activeWorkerCount--;
-        
+
         emit ProfileDeregistered(msg.sender);
     }
 
@@ -215,15 +234,17 @@ contract WorkerRegistry {
     /**
      * @dev Get worker profile fields individually
      */
-    function getWorkerInfo(address _worker) 
-        external 
-        view 
+    function getWorkerInfo(
+        address _worker
+    )
+        external
+        view
         returns (
             bytes32 ipfsHash,
             uint256 hourlyRate,
             bool isActive,
             uint256 registeredAt
-        ) 
+        )
     {
         Profile storage profile = profiles[_worker];
         return (
@@ -253,30 +274,29 @@ contract WorkerRegistry {
      * @param _offset Starting index
      * @param _limit Number of workers to return
      */
-    function getWorkersPaginated(uint256 _offset, uint256 _limit) 
-        external 
-        view 
-        returns (address[] memory) 
-    {
+    function getWorkersPaginated(
+        uint256 _offset,
+        uint256 _limit
+    ) external view returns (address[] memory) {
         require(_limit > 0 && _limit <= 100, "Invalid limit");
-        
+
         uint256 total = allWorkers.length;
         if (_offset >= total) {
             return new address[](0);
         }
-        
+
         uint256 end = _offset + _limit;
         if (end > total) {
             end = total;
         }
-        
+
         uint256 resultLength = end - _offset;
         address[] memory result = new address[](resultLength);
-        
+
         for (uint256 i = 0; i < resultLength; i++) {
             result[i] = allWorkers[_offset + i];
         }
-        
+
         return result;
     }
 

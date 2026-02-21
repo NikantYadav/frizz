@@ -18,7 +18,8 @@ import "./WorkerRegistry.sol";
 contract JobMarketplace is ReentrancyGuard, Ownable {
     Arbitration public immutable arbitration;
     IERC20 public immutable usdc; // USDC for arbitration fees
-    address public constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address public constant USDC_ADDRESS =
+        0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     ReputationSystem public immutable reputationSystem;
     WorkerRegistry public immutable workerRegistry;
 
@@ -39,6 +40,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         bool workSubmitted;
         uint256 disputeId;
         bool isDisputed;
+        bool isCancelled;
     }
 
     struct Application {
@@ -54,11 +56,9 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     mapping(address => uint256[]) public clientJobs;
     mapping(address => uint256[]) public workerApplications;
     mapping(address => uint256[]) public workerJobs; // Jobs where worker is selected
-    
+
     // Optimized lookups
     mapping(uint256 => mapping(address => bool)) public hasApplied; // jobId => worker => applied
-    mapping(uint256 => bool) public workerRated; // jobId => rated
-    mapping(uint256 => bool) public clientRated; // jobId => rated
     uint256[] public activeJobIds; // List of active job IDs
     mapping(uint256 => uint256) public activeJobIndex; // jobId => index in activeJobIds
 
@@ -118,6 +118,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     ) external returns (uint256) {
         require(_budget > 0, "Budget must be positive");
         require(bytes(_title).length > 0, "Title required");
+        require(arbitration.validCategories(_categoryId), "Invalid category");
 
         jobCounter++;
 
@@ -137,7 +138,8 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
             workSubmissionHash: "",
             workSubmitted: false,
             disputeId: 0,
-            isDisputed: false
+            isDisputed: false,
+            isCancelled: false
         });
 
         clientJobs[msg.sender].push(jobCounter);
@@ -155,10 +157,11 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     ) external onlyClient(_jobId) nonReentrant {
         Job storage job = jobs[_jobId];
         require(!job.isFunded, "Already funded");
+        require(!job.isCancelled, "Job is cancelled");
         require(job.escrowContract == address(0), "Escrow already created");
 
         uint256 budget = job.budget;
-        
+
         // Transfer USDC from client to marketplace
         require(
             usdc.transferFrom(msg.sender, address(this), budget),
@@ -170,18 +173,15 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         job.escrowContract = address(escrow);
 
         // Approve escrow to pull USDC from marketplace
-        require(
-            usdc.approve(address(escrow), budget),
-            "USDC approval failed"
-        );
-        
+        require(usdc.approve(address(escrow), budget), "USDC approval failed");
+
         // Escrow pulls USDC from marketplace (atomic)
         escrow.fundFromMarketplace();
 
         // Mark job as funded and active
         job.isFunded = true;
         job.isActive = true;
-        
+
         // Add to active jobs list
         activeJobIndex[_jobId] = activeJobIds.length;
         activeJobIds.push(_jobId);
@@ -190,16 +190,26 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Cancel unfunded job
-     * Can only cancel before funding
+     * @dev Cancel job before a worker is selected
+     * If funded, refunds the full escrow amount to the client
      */
-    function cancelJob(uint256 _jobId) external onlyClient(_jobId) {
+    function cancelJob(
+        uint256 _jobId
+    ) external onlyClient(_jobId) nonReentrant {
         Job storage job = jobs[_jobId];
-        require(!job.isFunded, "Cannot cancel funded job");
-        require(job.isActive == false, "Job already active");
-        
-        job.isActive = false;
-        
+        require(!job.isCancelled, "Already cancelled");
+        require(job.selectedWorker == address(0), "Worker already selected");
+        require(!job.isDisputed, "Job is disputed");
+
+        job.isCancelled = true;
+
+        if (job.isFunded) {
+            job.isActive = false;
+            job.isCompleted = true; // End lifecycle
+            _removeFromActiveJobs(_jobId);
+            JobEscrow(job.escrowContract).cancelAndRefund();
+        }
+
         emit JobCancelled(_jobId);
     }
 
@@ -216,9 +226,10 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         require(job.isFunded, "Job not funded yet");
         require(job.isActive, "Job not active");
         require(job.selectedWorker == address(0), "Worker already selected");
+        require(msg.sender != job.client, "Client cannot apply to own job");
         require(bytes(_coverLetterHash).length > 0, "Cover letter required");
         require(!hasApplied[_jobId][msg.sender], "Already applied");
-        
+
         // Verify worker is registered
         require(
             workerRegistry.isActiveWorker(msg.sender),
@@ -260,7 +271,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
 
         // Set worker in escrow
         JobEscrow(job.escrowContract).setWorker(_worker);
-        
+
         // Remove from active jobs list
         _removeFromActiveJobs(_jobId);
 
@@ -302,11 +313,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         JobEscrow escrow = JobEscrow(job.escrowContract);
         escrow.releaseFullPayment();
 
-        emit PaymentReleased(
-            _jobId,
-            job.selectedWorker,
-            job.budget
-        );
+        emit PaymentReleased(_jobId, job.selectedWorker, job.budget);
 
         // Update reputation
         reputationSystem.recordJobCompletion(
@@ -325,10 +332,13 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         uint8 _rating
     ) external onlyClient(_jobId) {
         require(jobs[_jobId].isCompleted, "Job not completed");
-        require(!clientRated[_jobId], "Already rated");
-        
-        clientRated[_jobId] = true;
-        
+        require(!jobs[_jobId].isDisputed, "Cannot rate on disputed job");
+
+        // Check via ReputationSystem (single source of truth for rating state)
+        ReputationSystem.JobRecord memory jobRecord = reputationSystem
+            .getJobRecord(_jobId);
+        require(!jobRecord.clientRated, "Already rated");
+
         reputationSystem.updateRating(
             _jobId,
             jobs[_jobId].selectedWorker,
@@ -345,10 +355,13 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         uint8 _rating
     ) external onlySelectedWorker(_jobId) {
         require(jobs[_jobId].isCompleted, "Job not completed");
-        require(!workerRated[_jobId], "Already rated");
-        
-        workerRated[_jobId] = true;
-        
+        require(!jobs[_jobId].isDisputed, "Cannot rate on disputed job");
+
+        // Check via ReputationSystem (single source of truth for rating state)
+        ReputationSystem.JobRecord memory jobRecord = reputationSystem
+            .getJobRecord(_jobId);
+        require(!jobRecord.workerRated, "Already rated");
+
         reputationSystem.updateRating(
             _jobId,
             jobs[_jobId].client,
@@ -366,7 +379,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
             msg.sender == job.client || msg.sender == job.selectedWorker,
             "Only parties can dispute"
         );
-        require(job.workSubmitted, "Work not submitted yet");
+        require(job.selectedWorker != address(0), "No worker selected");
         require(!job.isDisputed, "Already disputed");
         require(!job.isCompleted, "Job already completed");
 
@@ -377,7 +390,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
             usdc.transferFrom(msg.sender, address(this), arbitrationFee),
             "USDC arbitration fee transfer failed"
         );
-        
+
         // Approve Arbitration contract to pull the USDC fee
         usdc.approve(address(arbitration), arbitrationFee);
 
@@ -405,6 +418,10 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
      */
     function resolveDispute(uint256 _jobId) external nonReentrant {
         Job storage job = jobs[_jobId];
+        require(
+            msg.sender == job.client || msg.sender == job.selectedWorker,
+            "Only parties can resolve"
+        );
         require(job.isDisputed, "Not disputed");
         require(!job.isCompleted, "Already completed");
 
@@ -413,34 +430,42 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         );
         require(isResolved, "Dispute not resolved yet");
 
+        // CRITICAL: Wait for appeal period to end before releasing funds
+        // Otherwise appeals are meaningless since escrow funds are already gone
+        uint256 appealEnd = arbitration.getAppealPeriodEnd(job.disputeId);
+        require(block.timestamp > appealEnd, "Appeal period not ended");
+
         job.isCompleted = true;
         job.isActive = false;
 
         JobEscrow escrow = JobEscrow(job.escrowContract);
+        uint256 escrowBalance = escrow.lockedAmount();
 
         if (clientWon) {
-            // Refund client
-            escrow.refundClient(job.budget);
+            // Refund client actual escrow balance
+            escrow.refundClient(escrowBalance);
         } else {
-            // Pay worker
-            escrow.payWorker(job.budget);
+            // Pay worker actual escrow balance
+            escrow.payWorker(escrowBalance);
         }
 
         emit DisputeResolved(_jobId, clientWon);
 
-        // Update reputation based on dispute result
-        if (clientWon) {
-            reputationSystem.recordDisputeResult(
-                job.disputeId,
-                job.client,
-                job.selectedWorker
-            );
-        } else {
-            reputationSystem.recordDisputeResult(
-                job.disputeId,
-                job.selectedWorker,
-                job.client
-            );
+        // Update reputation based on dispute result (only if not already recorded)
+        if (!reputationSystem.isDisputeRecorded(job.disputeId)) {
+            if (clientWon) {
+                reputationSystem.recordDisputeResult(
+                    job.disputeId,
+                    job.client,
+                    job.selectedWorker
+                );
+            } else {
+                reputationSystem.recordDisputeResult(
+                    job.disputeId,
+                    job.selectedWorker,
+                    job.client
+                );
+            }
         }
     }
 
@@ -493,13 +518,13 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     function _removeFromActiveJobs(uint256 _jobId) internal {
         uint256 index = activeJobIndex[_jobId];
         uint256 lastIndex = activeJobIds.length - 1;
-        
+
         if (index != lastIndex) {
             uint256 lastJobId = activeJobIds[lastIndex];
             activeJobIds[index] = lastJobId;
             activeJobIndex[lastJobId] = index;
         }
-        
+
         activeJobIds.pop();
         delete activeJobIndex[_jobId];
     }

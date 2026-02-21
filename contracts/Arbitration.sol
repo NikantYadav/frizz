@@ -11,8 +11,20 @@ import "./SortitionSumTreeFactory.sol";
  */
 interface IRandomnessOracle {
     function requestRandomness() external returns (bytes32 requestId);
+
     function getRandomNumber(bytes32 requestId) external view returns (uint256);
-    function isRandomNumberReady(bytes32 requestId) external view returns (bool);
+
+    function isRandomNumberReady(
+        bytes32 requestId
+    ) external view returns (bool);
+}
+
+/**
+ * @title IWorkerRegistry
+ * @dev Interface for WorkerRegistry to verify juror registration as active workers
+ */
+interface IWorkerRegistry {
+    function isActiveWorker(address _worker) external view returns (bool);
 }
 
 /**
@@ -22,14 +34,18 @@ interface IRandomnessOracle {
  */
 contract Arbitration is ReentrancyGuard {
     using SortitionSumTreeFactory for SortitionSumTreeFactory.SortitionSumTrees;
-    
+
+    address public immutable deployer; // Deployer for initial setup access control
+
     // USDC token on Ethereum mainnet (6 decimals)
     IERC20 public immutable usdc;
-    address public constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    
+    address public constant USDC_ADDRESS =
+        0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+
     address public marketplace;
     address public treasury; // For trapped funds in edge cases
     IRandomnessOracle public randomnessOracle;
+    IWorkerRegistry public workerRegistry;
 
     // Sortition trees for each category
     SortitionSumTreeFactory.SortitionSumTrees internal sortitionTrees;
@@ -112,7 +128,11 @@ contract Arbitration is ReentrancyGuard {
         uint256[] categoryIds
     );
     event JurorUnstaked(address indexed juror, uint256 amount);
-    event JurorStakeAdded(address indexed juror, uint256 amount, uint256 newTotal);
+    event JurorStakeAdded(
+        address indexed juror,
+        uint256 amount,
+        uint256 newTotal
+    );
     event JurorRewardsWithdrawn(address indexed juror, uint256 amount);
     event JurorEligibilityRestored(address indexed juror);
     event TreasuryFundsDeposited(uint256 indexed disputeId, uint256 amount);
@@ -162,14 +182,27 @@ contract Arbitration is ReentrancyGuard {
         bool voteForClient
     );
     event RandomnessRequested(uint256 indexed disputeId, bytes32 requestId);
-    event JurorSelectionCompleted(uint256 indexed disputeId, uint256 jurorCount);
+    event JurorSelectionCompleted(
+        uint256 indexed disputeId,
+        uint256 jurorCount
+    );
 
     modifier onlyMarketplace() {
         require(msg.sender == marketplace, "Only marketplace");
         _;
     }
 
+    modifier onlyDeployerOrMarketplace() {
+        require(
+            msg.sender == deployer ||
+                (marketplace != address(0) && msg.sender == marketplace),
+            "Not authorized"
+        );
+        _;
+    }
+
     constructor(address _randomnessOracle) {
+        deployer = msg.sender;
         usdc = IERC20(USDC_ADDRESS);
         randomnessOracle = IRandomnessOracle(_randomnessOracle);
         treasury = msg.sender; // Initially set to deployer, can be changed
@@ -179,15 +212,16 @@ contract Arbitration is ReentrancyGuard {
      * @dev Set marketplace address (only once)
      */
     function setMarketplace(address _marketplace) external {
+        require(msg.sender == deployer, "Only deployer");
         require(marketplace == address(0), "Marketplace already set");
+        require(_marketplace != address(0), "Invalid marketplace address");
         marketplace = _marketplace;
     }
 
     /**
      * @dev Update treasury address (admin function)
      */
-    function setTreasury(address _treasury) external {
-        require(marketplace == address(0) || msg.sender == marketplace, "Not authorized");
+    function setTreasury(address _treasury) external onlyDeployerOrMarketplace {
         require(_treasury != address(0), "Invalid treasury address");
         treasury = _treasury;
     }
@@ -195,24 +229,39 @@ contract Arbitration is ReentrancyGuard {
     /**
      * @dev Update randomness oracle address (admin function)
      */
-    function setRandomnessOracle(address _oracle) external {
-        require(marketplace == address(0) || msg.sender == marketplace, "Not authorized");
+    function setRandomnessOracle(
+        address _oracle
+    ) external onlyDeployerOrMarketplace {
+        require(_oracle != address(0), "Invalid oracle address");
         randomnessOracle = IRandomnessOracle(_oracle);
+    }
+
+    /**
+     * @dev Set worker registry address (admin function)
+     * Required for juror-must-be-worker validation
+     */
+    function setWorkerRegistry(
+        address _registry
+    ) external onlyDeployerOrMarketplace {
+        require(_registry != address(0), "Invalid registry address");
+        workerRegistry = IWorkerRegistry(_registry);
     }
 
     /**
      * @dev Add a new category (admin only)
      */
-    function addCategory(string memory _name) external {
-        require(marketplace == address(0) || msg.sender == marketplace, "Not authorized");
+    function addCategory(
+        string memory _name
+    ) external onlyDeployerOrMarketplace {
+        require(bytes(_name).length > 0, "Category name required");
         categoryCounter++;
         validCategories[categoryCounter] = true;
         categoryNames[categoryCounter] = _name;
-        
+
         // Create sortition tree for this category
         bytes32 treeKey = bytes32(categoryCounter);
         sortitionTrees.createTree(treeKey, TREE_K);
-        
+
         emit CategoryAdded(categoryCounter, _name);
     }
 
@@ -224,11 +273,12 @@ contract Arbitration is ReentrancyGuard {
         require(_categoryIds.length > 0, "Must specify categories");
         require(_categoryIds.length <= MAX_CATEGORIES, "Too many categories");
         require(
-            usdc.transferFrom(
-                msg.sender,
-                address(this),
-                STAKE_AMOUNT
-            ),
+            address(workerRegistry) != address(0) &&
+                workerRegistry.isActiveWorker(msg.sender),
+            "Must be registered worker"
+        );
+        require(
+            usdc.transferFrom(msg.sender, address(this), STAKE_AMOUNT),
             "Stake transfer failed"
         );
 
@@ -245,11 +295,14 @@ contract Arbitration is ReentrancyGuard {
         bytes32 jurorID = bytes32(uint256(uint160(msg.sender)));
         for (uint256 i = 0; i < _categoryIds.length; i++) {
             require(validCategories[_categoryIds[i]], "Invalid category");
-            require(!juror.inCategory[_categoryIds[i]], "Category already added");
-            
+            require(
+                !juror.inCategory[_categoryIds[i]],
+                "Category already added"
+            );
+
             juror.inCategory[_categoryIds[i]] = true;
             juror.categories.push(_categoryIds[i]);
-            
+
             // Add to sortition tree with available stake as weight
             bytes32 treeKey = bytes32(_categoryIds[i]);
             uint256 availableStake = STAKE_AMOUNT; // Initially all stake is available
@@ -280,10 +333,7 @@ contract Arbitration is ReentrancyGuard {
 
         delete jurors[msg.sender];
 
-        require(
-            usdc.transfer(msg.sender, amount),
-            "Unstake transfer failed"
-        );
+        require(usdc.transfer(msg.sender, amount), "Unstake transfer failed");
 
         emit JurorUnstaked(msg.sender, amount);
     }
@@ -295,23 +345,23 @@ contract Arbitration is ReentrancyGuard {
         Juror storage juror = jurors[msg.sender];
         require(juror.isStaked, "Not staked");
         require(_amount > 0, "Amount must be positive");
-        
+
         require(
             usdc.transferFrom(msg.sender, address(this), _amount),
             "Stake transfer failed"
         );
-        
+
         juror.stakedAmount += _amount;
-        
+
         // Restore eligibility if stake now covers locked amount
         if (!juror.isEligible && juror.stakedAmount >= juror.lockedStake) {
             juror.isEligible = true;
             emit JurorEligibilityRestored(msg.sender);
         }
-        
+
         // Update weight in sortition trees
         _updateJurorWeight(msg.sender);
-        
+
         emit JurorStakeAdded(msg.sender, _amount, juror.stakedAmount);
     }
 
@@ -323,29 +373,29 @@ contract Arbitration is ReentrancyGuard {
         Juror storage juror = jurors[msg.sender];
         require(juror.isStaked, "Not staked");
         require(_amount > 0, "Amount must be positive");
-        
+
         // Ensure remaining stake covers locked amount
         require(
             juror.stakedAmount - _amount >= juror.lockedStake,
             "Cannot withdraw below locked stake"
         );
-        
+
         // Ensure remaining stake is at least STAKE_AMOUNT to maintain juror status
         require(
             juror.stakedAmount - _amount >= STAKE_AMOUNT,
             "Must maintain minimum stake"
         );
-        
+
         juror.stakedAmount -= _amount;
-        
+
         // Update weight in sortition trees
         _updateJurorWeight(msg.sender);
-        
+
         require(
             usdc.transfer(msg.sender, _amount),
             "Withdrawal transfer failed"
         );
-        
+
         emit JurorRewardsWithdrawn(msg.sender, _amount);
     }
 
@@ -356,13 +406,13 @@ contract Arbitration is ReentrancyGuard {
         Juror storage juror = jurors[_juror];
         if (!juror.isStaked) return;
         if (!juror.isEligible) return; // Don't update weight if juror is ineligible
-        
+
         // Safely handle case where slashing reduced stakedAmount below lockedStake
         uint256 availableStake = juror.stakedAmount >= juror.lockedStake
             ? juror.stakedAmount - juror.lockedStake
             : 0;
         bytes32 jurorID = bytes32(uint256(uint160(_juror)));
-        
+
         // Update weight in all categories
         for (uint256 i = 0; i < juror.categories.length; i++) {
             bytes32 treeKey = bytes32(juror.categories[i]);
@@ -381,14 +431,24 @@ contract Arbitration is ReentrancyGuard {
         uint256 _amount
     ) external onlyMarketplace returns (uint256) {
         require(validCategories[_categoryId], "Invalid category");
-        
+
         // Check if sortition tree has enough stake
         bytes32 treeKey = bytes32(_categoryId);
-        require(sortitionTrees.sortitionSumTrees[treeKey].nodes.length > 1, "No jurors in category");
-        require(sortitionTrees.sortitionSumTrees[treeKey].nodes[0] >= STAKE_LOCK_PER_DISPUTE * INITIAL_JUROR_COUNT, "Not enough available stake");
+        require(
+            sortitionTrees.sortitionSumTrees[treeKey].nodes.length > 1,
+            "No jurors in category"
+        );
+        require(
+            sortitionTrees.sortitionSumTrees[treeKey].nodes[0] >=
+                STAKE_LOCK_PER_DISPUTE * INITIAL_JUROR_COUNT,
+            "Not enough available stake"
+        );
 
         // Require oracle to be available - no predictable fallback
-        require(address(randomnessOracle) != address(0), "Randomness oracle not available");
+        require(
+            address(randomnessOracle) != address(0),
+            "Randomness oracle not available"
+        );
 
         // Transfer arbitration fee from marketplace (marketplace should have received it from disputing party)
         require(
@@ -430,9 +490,9 @@ contract Arbitration is ReentrancyGuard {
         Dispute storage dispute = disputes[_disputeId];
         require(dispute.jurorSelectionPending, "Selection not pending");
         require(
-            msg.sender == marketplace || 
-            msg.sender == dispute.client || 
-            msg.sender == dispute.worker,
+            msg.sender == marketplace ||
+                msg.sender == dispute.client ||
+                msg.sender == dispute.worker,
             "Not authorized"
         );
         require(
@@ -443,8 +503,12 @@ contract Arbitration is ReentrancyGuard {
         uint256 randomNumber = randomnessOracle.getRandomNumber(
             dispute.randomnessRequestId
         );
-        _selectJurorsWithRandomness(_disputeId, dispute.jurorCount, randomNumber);
-        
+        _selectJurorsWithRandomness(
+            _disputeId,
+            dispute.jurorCount,
+            randomNumber
+        );
+
         dispute.jurorSelectionPending = false;
         emit JurorSelectionCompleted(_disputeId, dispute.jurorCount);
     }
@@ -478,7 +542,10 @@ contract Arbitration is ReentrancyGuard {
     function commitVote(uint256 _disputeId, bytes32 _commitHash) external {
         Dispute storage dispute = disputes[_disputeId];
         require(dispute.isActive, "Dispute not active");
-        require(!dispute.jurorSelectionPending, "Juror selection not completed");
+        require(
+            !dispute.jurorSelectionPending,
+            "Juror selection not completed"
+        );
         require(
             block.timestamp >= dispute.evidencePeriodEnd,
             "Evidence period not ended"
@@ -572,9 +639,12 @@ contract Arbitration is ReentrancyGuard {
         );
 
         // Use ceiling division for quorum
-        uint256 requiredReveals = (dispute.selectedJurors.length * REVEAL_QUORUM_PERCENTAGE + 99) / 100;
+        uint256 requiredReveals = (dispute.selectedJurors.length *
+            REVEAL_QUORUM_PERCENTAGE +
+            99) / 100;
         bool quorumNotMet = dispute.revealCount < requiredReveals;
-        bool isTie = dispute.votesForClient == dispute.votesForWorker && dispute.revealCount > 0;
+        bool isTie = dispute.votesForClient == dispute.votesForWorker &&
+            dispute.revealCount > 0;
 
         require(quorumNotMet || isTie, "Round is valid, use finalizeDispute");
 
@@ -584,28 +654,36 @@ contract Arbitration is ReentrancyGuard {
             address juror = dispute.selectedJurors[i];
             if (!dispute.hasRevealed[juror]) {
                 uint256 snapshotStake = dispute.jurorStakeSnapshot[juror];
-                uint256 slashAmount = snapshotStake * SLASH_PERCENTAGE / 100;
+                uint256 slashAmount = (snapshotStake * SLASH_PERCENTAGE) / 100;
                 // Ensure we don't slash more than current stake
                 if (slashAmount > jurors[juror].stakedAmount) {
                     slashAmount = jurors[juror].stakedAmount;
                 }
                 jurors[juror].stakedAmount -= slashAmount;
                 totalSlashedInRetry += slashAmount;
-                
+
                 // Check stake invariant
                 _enforceStakeInvariant(juror);
-                
-                emit JurorSlashed(_disputeId, juror, slashAmount, "Non-reveal in retry");
+
+                emit JurorSlashed(
+                    _disputeId,
+                    juror,
+                    slashAmount,
+                    "Non-reveal in retry"
+                );
             }
-            
+
             // Auto-decrement activeDisputeCount and unlock stake for all jurors from this round
             jurors[juror].activeDisputeCount--;
             jurors[juror].lockedStake -= STAKE_LOCK_PER_DISPUTE;
-            
+
+            // Clear selection flag so juror can be reselected in new round
+            jurors[juror].isSelectedForDispute[_disputeId] = false;
+
             // Update sortition tree weight (available stake increased)
             _updateJurorWeight(juror);
         }
-        
+
         // Add slashed funds to arbitration fee pool for new round
         dispute.arbitrationFeePaid += totalSlashedInRetry;
 
@@ -641,7 +719,10 @@ contract Arbitration is ReentrancyGuard {
         dispute.revealPeriodEnd = block.timestamp + EVIDENCE_PERIOD + 6 days;
 
         // Select additional jurors using oracle randomness (required)
-        require(address(randomnessOracle) != address(0), "Randomness oracle not available");
+        require(
+            address(randomnessOracle) != address(0),
+            "Randomness oracle not available"
+        );
         bytes32 requestId = randomnessOracle.requestRandomness();
         dispute.randomnessRequestId = requestId;
         dispute.jurorSelectionPending = true;
@@ -671,8 +752,9 @@ contract Arbitration is ReentrancyGuard {
 
         // Scale appeal fee dynamically: fee proportional to new juror count
         // This maintains economic incentives for jurors in later appeal rounds
-        uint256 appealFee = (ARBITRATION_FEE * newJurorCount) / INITIAL_JUROR_COUNT;
-        
+        uint256 appealFee = (ARBITRATION_FEE * newJurorCount) /
+            INITIAL_JUROR_COUNT;
+
         // Transfer scaled appeal fee from appellant
         require(
             usdc.transferFrom(msg.sender, address(this), appealFee),
@@ -683,12 +765,16 @@ contract Arbitration is ReentrancyGuard {
         uint256 existingJurorCount = dispute.selectedJurors.length;
         for (uint256 i = 0; i < existingJurorCount; i++) {
             address juror = dispute.selectedJurors[i];
-            
+
             // Unlock their stake now that appeal is filed
             jurors[juror].activeDisputeCount--;
             jurors[juror].lockedStake -= STAKE_LOCK_PER_DISPUTE;
+
+            // Clear selection flag so juror can be reselected in new round
+            jurors[juror].isSelectedForDispute[_disputeId] = false;
+
             _updateJurorWeight(juror);
-            
+
             // Clear dispute data
             delete dispute.commitHashes[juror];
             delete dispute.hasCommitted[juror];
@@ -721,7 +807,10 @@ contract Arbitration is ReentrancyGuard {
         dispute.appealPeriodEnd = 0; // Reset appeal period
 
         // Select entirely new jury panel using oracle randomness (required)
-        require(address(randomnessOracle) != address(0), "Randomness oracle not available");
+        require(
+            address(randomnessOracle) != address(0),
+            "Randomness oracle not available"
+        );
         bytes32 requestId = randomnessOracle.requestRandomness();
         dispute.randomnessRequestId = requestId;
         dispute.jurorSelectionPending = true;
@@ -737,10 +826,17 @@ contract Arbitration is ReentrancyGuard {
         uint256 _disputeId
     ) external view returns (bool isResolved, bool clientWon) {
         Dispute storage dispute = disputes[_disputeId];
-        return (
-            dispute.isResolved,
-            dispute.votesForClient > dispute.votesForWorker
-        );
+        return (dispute.isResolved, dispute.clientWon);
+    }
+
+    /**
+     * @dev Get appeal period end timestamp for a dispute
+     * Marketplace must wait for this before releasing escrow funds
+     */
+    function getAppealPeriodEnd(
+        uint256 _disputeId
+    ) external view returns (uint256) {
+        return disputes[_disputeId].appealPeriodEnd;
     }
 
     /**
@@ -756,7 +852,10 @@ contract Arbitration is ReentrancyGuard {
         Dispute storage dispute = disputes[_disputeId];
         bytes32 treeKey = bytes32(dispute.categoryId);
 
-        require(dispute.selectedJurors.length + _count <= MAX_JURORS_PER_DISPUTE, "Max jurors exceeded");
+        require(
+            dispute.selectedJurors.length + _count <= MAX_JURORS_PER_DISPUTE,
+            "Max jurors exceeded"
+        );
 
         // Get total stake in tree for modulo operation
         uint256 totalStake = sortitionTrees.sortitionSumTrees[treeKey].nodes[0];
@@ -772,60 +871,74 @@ contract Arbitration is ReentrancyGuard {
         // Use sortition tree to draw jurors with retry logic
         while (selectedCount < _count && attempts < maxAttempts) {
             attempts++;
-            
+
             // Generate random number and apply modulo to fit within total stake
             uint256 randomDraw = uint256(
                 keccak256(abi.encodePacked(seed, selectedCount, _disputeId))
             ) % totalStake;
-            
+
             // Draw from sortition tree
             bytes32 jurorID = sortitionTrees.draw(treeKey, randomDraw);
             address selectedJuror = address(uint160(uint256(jurorID)));
-            
+
             // Check if juror is eligible
-            if (!jurors[selectedJuror].isStaked || 
+            if (
+                !jurors[selectedJuror].isStaked ||
                 !jurors[selectedJuror].isEligible ||
-                _isSelectedJuror(_disputeId, selectedJuror)) {
+                _isSelectedJuror(_disputeId, selectedJuror)
+            ) {
                 // Skip this juror and try again with new seed
-                seed = uint256(keccak256(abi.encodePacked(seed, selectedJuror)));
+                seed = uint256(
+                    keccak256(abi.encodePacked(seed, selectedJuror))
+                );
                 continue;
             }
-            
-            uint256 availableStake = jurors[selectedJuror].stakedAmount - jurors[selectedJuror].lockedStake;
+
+            uint256 availableStake = jurors[selectedJuror].stakedAmount -
+                jurors[selectedJuror].lockedStake;
             if (availableStake < STAKE_LOCK_PER_DISPUTE) {
                 // Skip this juror and try again with new seed
-                seed = uint256(keccak256(abi.encodePacked(seed, selectedJuror)));
+                seed = uint256(
+                    keccak256(abi.encodePacked(seed, selectedJuror))
+                );
                 continue;
             }
-            
+
             // Valid juror found - add to dispute and snapshot stake
             dispute.selectedJurors.push(selectedJuror);
-            dispute.jurorStakeSnapshot[selectedJuror] = jurors[selectedJuror].stakedAmount;
-            
+            dispute.jurorStakeSnapshot[selectedJuror] = jurors[selectedJuror]
+                .stakedAmount;
+
             // Mark juror as selected for this dispute (O(1) lookup)
             jurors[selectedJuror].isSelectedForDispute[_disputeId] = true;
-            
+
             // Lock stake for this dispute
             jurors[selectedJuror].lockedStake += STAKE_LOCK_PER_DISPUTE;
             jurors[selectedJuror].activeDisputeCount++;
-            
+
             // Track for weight update
             selectedInThisRound[selectedCount] = selectedJuror;
             selectedCount++;
-            
+
             // Temporarily set weight to 0 to prevent re-selection in this round
             bytes32 tempJurorID = bytes32(uint256(uint160(selectedJuror)));
-            for (uint256 j = 0; j < jurors[selectedJuror].categories.length; j++) {
-                bytes32 tempTreeKey = bytes32(jurors[selectedJuror].categories[j]);
+            for (
+                uint256 j = 0;
+                j < jurors[selectedJuror].categories.length;
+                j++
+            ) {
+                bytes32 tempTreeKey = bytes32(
+                    jurors[selectedJuror].categories[j]
+                );
                 sortitionTrees.set(tempTreeKey, 0, tempJurorID);
             }
-            
+
             emit JurorSelected(_disputeId, selectedJuror);
-            
+
             // Update seed for next iteration
             seed = uint256(keccak256(abi.encodePacked(seed, selectedJuror)));
         }
-        
+
         require(selectedCount == _count, "Could not select enough jurors");
 
         // Restore weights for all selected jurors with their new locked stake
@@ -834,18 +947,21 @@ contract Arbitration is ReentrancyGuard {
         }
     }
 
-
-
     /**
      * @dev Internal: Resolve dispute and calculate rewards (no loops for distribution)
      */
     function _resolveDispute(uint256 _disputeId) internal {
         Dispute storage dispute = disputes[_disputeId];
-        
+
         // Use ceiling division for quorum
-        uint256 requiredReveals = (dispute.selectedJurors.length * REVEAL_QUORUM_PERCENTAGE + 99) / 100;
-        require(dispute.revealCount >= requiredReveals, "Insufficient reveals, use retryDisputeRound");
-        
+        uint256 requiredReveals = (dispute.selectedJurors.length *
+            REVEAL_QUORUM_PERCENTAGE +
+            99) / 100;
+        require(
+            dispute.revealCount >= requiredReveals,
+            "Insufficient reveals, use retryDisputeRound"
+        );
+
         // Check for tie
         require(
             dispute.votesForClient != dispute.votesForWorker,
@@ -864,12 +980,23 @@ contract Arbitration is ReentrancyGuard {
         // Record pending slashes (don't apply yet - wait for appeal period)
         uint256 totalSlashed = _applySlashing(_disputeId);
         dispute.totalSlashed = totalSlashed;
-        dispute.winnerCount = dispute.clientWon ? dispute.votesForClient : dispute.votesForWorker;
-        
+        dispute.winnerCount = dispute.clientWon
+            ? dispute.votesForClient
+            : dispute.votesForWorker;
+
         uint256 totalReward = dispute.arbitrationFeePaid + totalSlashed;
-        
+
         if (dispute.winnerCount > 0) {
             dispute.rewardPerWinner = totalReward / dispute.winnerCount;
+            // Send remainder (dust from integer division) to treasury
+            uint256 remainder = totalReward -
+                (dispute.rewardPerWinner * dispute.winnerCount);
+            if (remainder > 0 && treasury != address(0)) {
+                require(
+                    usdc.transfer(treasury, remainder),
+                    "Treasury dust transfer failed"
+                );
+            }
         } else {
             // Edge case: Zero winners - send funds to treasury
             require(treasury != address(0), "Treasury not set");
@@ -888,8 +1015,8 @@ contract Arbitration is ReentrancyGuard {
     }
 
     /**
-     * @dev Apply slashing immediately to all losers and non-revealers
-     * This prevents insolvency by ensuring slashed funds are available for rewards
+     * @dev Record pending slashes for all losers and non-revealers
+     * Slashes are deferred until after the appeal period via _claimRewardInternal
      */
     function _applySlashing(uint256 _disputeId) internal returns (uint256) {
         Dispute storage dispute = disputes[_disputeId];
@@ -899,63 +1026,48 @@ contract Arbitration is ReentrancyGuard {
         for (uint256 i = 0; i < jurorCount; i++) {
             address juror = dispute.selectedJurors[i];
             uint256 snapshotStake = dispute.jurorStakeSnapshot[juror];
-            
+
             // Record pending slashes (don't apply yet - wait for appeal period)
             if (!dispute.hasRevealed[juror]) {
                 // Non-revealer: record pending slash
-                uint256 slashAmount = snapshotStake * SLASH_PERCENTAGE / 100;
+                uint256 slashAmount = (snapshotStake * SLASH_PERCENTAGE) / 100;
                 // Ensure we don't slash more than current stake
                 if (slashAmount > jurors[juror].stakedAmount) {
                     slashAmount = jurors[juror].stakedAmount;
                 }
                 dispute.pendingSlash[juror] = slashAmount;
                 totalSlashed += slashAmount;
-                
-                emit JurorSlashed(_disputeId, juror, slashAmount, "Non-reveal (pending)");
+
+                emit JurorSlashed(
+                    _disputeId,
+                    juror,
+                    slashAmount,
+                    "Non-reveal (pending)"
+                );
             } else if (dispute.votedForClient[juror] != dispute.clientWon) {
                 // Loser: record pending slash
-                uint256 slashAmount = snapshotStake * SLASH_PERCENTAGE / 100;
+                uint256 slashAmount = (snapshotStake * SLASH_PERCENTAGE) / 100;
                 // Ensure we don't slash more than current stake
                 if (slashAmount > jurors[juror].stakedAmount) {
                     slashAmount = jurors[juror].stakedAmount;
                 }
                 dispute.pendingSlash[juror] = slashAmount;
                 totalSlashed += slashAmount;
-                
-                emit JurorSlashed(_disputeId, juror, slashAmount, "Wrong vote (pending)");
+
+                emit JurorSlashed(
+                    _disputeId,
+                    juror,
+                    slashAmount,
+                    "Wrong vote (pending)"
+                );
             }
         }
 
         return totalSlashed;
     }
 
-    /**
-     * @dev Apply pending slashes after appeal period expires
-     * Called when rewards are claimed or when explicitly finalized
-     */
-    function _applyPendingSlashes(uint256 _disputeId) internal {
-        Dispute storage dispute = disputes[_disputeId];
-        require(block.timestamp > dispute.appealPeriodEnd, "Appeal period not ended");
-        
-        for (uint256 i = 0; i < dispute.selectedJurors.length; i++) {
-            address juror = dispute.selectedJurors[i];
-            uint256 slashAmount = dispute.pendingSlash[juror];
-            
-            if (slashAmount > 0) {
-                // Apply the slash now
-                if (slashAmount > jurors[juror].stakedAmount) {
-                    slashAmount = jurors[juror].stakedAmount;
-                }
-                jurors[juror].stakedAmount -= slashAmount;
-                
-                // Check stake invariant
-                _enforceStakeInvariant(juror);
-                
-                // Clear pending slash
-                dispute.pendingSlash[juror] = 0;
-            }
-        }
-    }
+    // Note: Pending slashes are applied per-juror in _claimRewardInternal()
+    // when jurors claim their rewards after the appeal period ends.
 
     /**
      * @dev Enforce stake invariant: stakedAmount >= lockedStake
@@ -963,18 +1075,18 @@ contract Arbitration is ReentrancyGuard {
      */
     function _enforceStakeInvariant(address _juror) internal {
         Juror storage juror = jurors[_juror];
-        
+
         // If stake dropped below locked amount, mark as ineligible and remove from trees
         if (juror.stakedAmount < juror.lockedStake) {
             juror.isEligible = false;
             bytes32 jurorID = bytes32(uint256(uint160(_juror)));
-            
+
             // Remove from all category trees (weight = 0)
             for (uint256 i = 0; i < juror.categories.length; i++) {
                 bytes32 treeKey = bytes32(juror.categories[i]);
                 sortitionTrees.set(treeKey, 0, jurorID);
             }
-            
+
             // Note: Juror remains staked but cannot be selected until they add more stake
             // Their lockedStake will be released as disputes resolve
         }
@@ -999,12 +1111,15 @@ contract Arbitration is ReentrancyGuard {
     /**
      * @dev Batch claim rewards for multiple disputes
      */
-    function claimRewardsBatch(uint256[] calldata _disputeIds) external nonReentrant {
+    function claimRewardsBatch(
+        uint256[] calldata _disputeIds
+    ) external nonReentrant {
+        require(_disputeIds.length <= 20, "Too many claims at once");
         for (uint256 i = 0; i < _disputeIds.length; i++) {
             Dispute storage dispute = disputes[_disputeIds[i]];
             if (
-                !dispute.hasClaimed[msg.sender] && 
-                dispute.isResolved && 
+                !dispute.hasClaimed[msg.sender] &&
+                dispute.isResolved &&
                 block.timestamp > dispute.appealPeriodEnd
             ) {
                 _claimRewardInternal(_disputeIds[i]);
@@ -1018,10 +1133,13 @@ contract Arbitration is ReentrancyGuard {
      */
     function _claimRewardInternal(uint256 _disputeId) internal {
         Dispute storage dispute = disputes[_disputeId];
-        
+
         // Verify caller is a selected juror
-        require(_isSelectedJuror(_disputeId, msg.sender), "Not a selected juror");
-        
+        require(
+            _isSelectedJuror(_disputeId, msg.sender),
+            "Not a selected juror"
+        );
+
         // Apply pending slashes for this juror if not already applied
         if (dispute.pendingSlash[msg.sender] > 0) {
             uint256 slashAmount = dispute.pendingSlash[msg.sender];
@@ -1032,24 +1150,26 @@ contract Arbitration is ReentrancyGuard {
             _enforceStakeInvariant(msg.sender);
             dispute.pendingSlash[msg.sender] = 0;
         }
-        
+
         dispute.hasClaimed[msg.sender] = true;
-        
+
         // Unlock stake for this juror now that appeal period is over
         jurors[msg.sender].activeDisputeCount--;
         jurors[msg.sender].lockedStake -= STAKE_LOCK_PER_DISPUTE;
 
         // Check if winner - only winners get rewards
-        if (dispute.hasRevealed[msg.sender] && 
-            dispute.votedForClient[msg.sender] == dispute.clientWon) {
+        if (
+            dispute.hasRevealed[msg.sender] &&
+            dispute.votedForClient[msg.sender] == dispute.clientWon
+        ) {
             // Winner: get reward
             uint256 reward = dispute.rewardPerWinner;
             jurors[msg.sender].stakedAmount += reward;
             jurors[msg.sender].correctVotes++;
-            
+
             // Update sortition tree weight (total stake increased)
             _updateJurorWeight(msg.sender);
-            
+
             emit RewardClaimed(_disputeId, msg.sender, reward);
         } else {
             // Loser or non-revealer: just update weight after slash

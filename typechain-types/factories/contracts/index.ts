@@ -2,10 +2,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export * as arbitrationSol from "./Arbitration.sol";
-export { ArbitrationToken__factory } from "./ArbitrationToken__factory";
 export { JobEscrow__factory } from "./JobEscrow__factory";
 export { JobMarketplace__factory } from "./JobMarketplace__factory";
-export { Negotiation__factory } from "./Negotiation__factory";
 export { QuantumRandomnessOracle__factory } from "./QuantumRandomnessOracle__factory";
 export { ReputationSystem__factory } from "./ReputationSystem__factory";
 export { WorkerRegistry__factory } from "./WorkerRegistry__factory";

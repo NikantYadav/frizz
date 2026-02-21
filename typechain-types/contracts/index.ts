@@ -3,10 +3,8 @@
 /* eslint-disable */
 import type * as arbitrationSol from "./Arbitration.sol";
 export type { arbitrationSol };
-export type { ArbitrationToken } from "./ArbitrationToken";
 export type { JobEscrow } from "./JobEscrow";
 export type { JobMarketplace } from "./JobMarketplace";
-export type { Negotiation } from "./Negotiation";
 export type { QuantumRandomnessOracle } from "./QuantumRandomnessOracle";
 export type { ReputationSystem } from "./ReputationSystem";
 export type { WorkerRegistry } from "./WorkerRegistry";

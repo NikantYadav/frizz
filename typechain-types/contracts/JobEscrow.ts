@@ -27,6 +27,7 @@ export interface JobEscrowInterface extends Interface {
   getFunction(
     nameOrSignature:
       | "USDC_ADDRESS"
+      | "cancelAndRefund"
       | "client"
       | "fundFromMarketplace"
       | "isCompleted"
@@ -53,10 +54,15 @@ export interface JobEscrowInterface extends Interface {
       | "Funded"
       | "PartialPaymentReleased"
       | "RefundIssued"
+      | "WorkerSet"
   ): EventFragment;
 
   encodeFunctionData(
     functionFragment: "USDC_ADDRESS",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "cancelAndRefund",
     values?: undefined
   ): string;
   encodeFunctionData(functionFragment: "client", values?: undefined): string;
@@ -114,6 +120,10 @@ export interface JobEscrowInterface extends Interface {
 
   decodeFunctionResult(
     functionFragment: "USDC_ADDRESS",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "cancelAndRefund",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "client", data: BytesLike): Result;
@@ -232,6 +242,18 @@ export namespace RefundIssuedEvent {
   export type LogDescription = TypedLogDescription<Event>;
 }
 
+export namespace WorkerSetEvent {
+  export type InputTuple = [worker: AddressLike];
+  export type OutputTuple = [worker: string];
+  export interface OutputObject {
+    worker: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
 export interface JobEscrow extends BaseContract {
   connect(runner?: ContractRunner | null): JobEscrow;
   waitForDeployment(): Promise<this>;
@@ -277,6 +299,8 @@ export interface JobEscrow extends BaseContract {
 
   USDC_ADDRESS: TypedContractMethod<[], [string], "view">;
 
+  cancelAndRefund: TypedContractMethod<[], [void], "nonpayable">;
+
   client: TypedContractMethod<[], [string], "view">;
 
   fundFromMarketplace: TypedContractMethod<[], [void], "nonpayable">;
@@ -320,6 +344,9 @@ export interface JobEscrow extends BaseContract {
   getFunction(
     nameOrSignature: "USDC_ADDRESS"
   ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "cancelAndRefund"
+  ): TypedContractMethod<[], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "client"
   ): TypedContractMethod<[], [string], "view">;
@@ -411,6 +438,13 @@ export interface JobEscrow extends BaseContract {
     RefundIssuedEvent.OutputTuple,
     RefundIssuedEvent.OutputObject
   >;
+  getEvent(
+    key: "WorkerSet"
+  ): TypedContractEvent<
+    WorkerSetEvent.InputTuple,
+    WorkerSetEvent.OutputTuple,
+    WorkerSetEvent.OutputObject
+  >;
 
   filters: {
     "DisputeRaised()": TypedContractEvent<
@@ -477,6 +511,17 @@ export interface JobEscrow extends BaseContract {
       RefundIssuedEvent.InputTuple,
       RefundIssuedEvent.OutputTuple,
       RefundIssuedEvent.OutputObject
+    >;
+
+    "WorkerSet(address)": TypedContractEvent<
+      WorkerSetEvent.InputTuple,
+      WorkerSetEvent.OutputTuple,
+      WorkerSetEvent.OutputObject
+    >;
+    WorkerSet: TypedContractEvent<
+      WorkerSetEvent.InputTuple,
+      WorkerSetEvent.OutputTuple,
+      WorkerSetEvent.OutputObject
     >;
   };
 }

@@ -3,3 +3,4 @@
 /* eslint-disable */
 export { Arbitration__factory } from "./Arbitration__factory";
 export { IRandomnessOracle__factory } from "./IRandomnessOracle__factory";
+export { IWorkerRegistry__factory } from "./IWorkerRegistry__factory";

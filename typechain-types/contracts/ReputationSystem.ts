@@ -84,12 +84,14 @@ export interface ReputationSystemInterface extends Interface {
       | "isDisputeRecorded"
       | "isJobRecorded"
       | "jobs"
+      | "marketplace"
       | "owner"
       | "recordDisputeResult"
       | "recordJobCompletion"
       | "renounceOwnership"
       | "reputations"
       | "setAuthorizedCaller"
+      | "setMarketplace"
       | "transferOwnership"
       | "updateRating"
   ): FunctionFragment;
@@ -135,6 +137,10 @@ export interface ReputationSystemInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(functionFragment: "jobs", values: [BigNumberish]): string;
+  encodeFunctionData(
+    functionFragment: "marketplace",
+    values?: undefined
+  ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "recordDisputeResult",
@@ -155,6 +161,10 @@ export interface ReputationSystemInterface extends Interface {
   encodeFunctionData(
     functionFragment: "setAuthorizedCaller",
     values: [AddressLike, boolean]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setMarketplace",
+    values: [AddressLike]
   ): string;
   encodeFunctionData(
     functionFragment: "transferOwnership",
@@ -198,6 +208,10 @@ export interface ReputationSystemInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "jobs", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "marketplace",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "recordDisputeResult",
@@ -217,6 +231,10 @@ export interface ReputationSystemInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "setAuthorizedCaller",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setMarketplace",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -407,6 +425,8 @@ export interface ReputationSystem extends BaseContract {
     "view"
   >;
 
+  marketplace: TypedContractMethod<[], [string], "view">;
+
   owner: TypedContractMethod<[], [string], "view">;
 
   recordDisputeResult: TypedContractMethod<
@@ -445,6 +465,12 @@ export interface ReputationSystem extends BaseContract {
 
   setAuthorizedCaller: TypedContractMethod<
     [_caller: AddressLike, _status: boolean],
+    [void],
+    "nonpayable"
+  >;
+
+  setMarketplace: TypedContractMethod<
+    [_marketplace: AddressLike],
     [void],
     "nonpayable"
   >;
@@ -518,6 +544,9 @@ export interface ReputationSystem extends BaseContract {
     "view"
   >;
   getFunction(
+    nameOrSignature: "marketplace"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
     nameOrSignature: "owner"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
@@ -565,6 +594,9 @@ export interface ReputationSystem extends BaseContract {
     [void],
     "nonpayable"
   >;
+  getFunction(
+    nameOrSignature: "setMarketplace"
+  ): TypedContractMethod<[_marketplace: AddressLike], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "transferOwnership"
   ): TypedContractMethod<[newOwner: AddressLike], [void], "nonpayable">;

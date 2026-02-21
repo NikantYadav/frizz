@@ -6,12 +6,12 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title QuantumRandomnessOracle
  * @dev Oracle contract for ANU Quantum Random Numbers
- * 
+ *
  * IMPORTANT: This contract requires an off-chain service to:
  * 1. Listen for RandomnessRequested events
  * 2. Fetch quantum random numbers from ANU API
  * 3. Call fulfillRandomness() with the result
- * 
+ *
  * ANU Quantum API: https://api.quantumnumbers.anu.edu.au
  * Example: GET ?length=1&type=uint16 with x-api-key header
  */
@@ -25,7 +25,7 @@ contract QuantumRandomnessOracle is Ownable {
 
     mapping(bytes32 => RandomnessRequest) public requests;
     mapping(address => bool) public authorizedFulfillers;
-    
+
     uint256 public requestCounter;
     uint256 public fulfillmentTimeout = 5 minutes;
 
@@ -34,12 +34,9 @@ contract QuantumRandomnessOracle is Ownable {
         address indexed requester,
         uint256 timestamp
     );
-    
-    event RandomnessFulfilled(
-        bytes32 indexed requestId,
-        uint256 randomNumber
-    );
-    
+
+    event RandomnessFulfilled(bytes32 indexed requestId, uint256 randomNumber);
+
     event FulfillerAuthorized(address indexed fulfiller);
     event FulfillerRevoked(address indexed fulfiller);
 
@@ -146,7 +143,9 @@ contract QuantumRandomnessOracle is Ownable {
     /**
      * @dev Emergency fallback: use pseudo-random if timeout exceeded
      */
-    function fulfillWithFallback(bytes32 _requestId) external {
+    function fulfillWithFallback(
+        bytes32 _requestId
+    ) external onlyAuthorizedFulfiller {
         RandomnessRequest storage request = requests[_requestId];
         require(!request.fulfilled, "Already fulfilled");
         require(request.requester != address(0), "Request not found");

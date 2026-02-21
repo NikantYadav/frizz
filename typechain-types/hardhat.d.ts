@@ -54,9 +54,9 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IRandomnessOracle__factory>;
     getContractFactory(
-      name: "ArbitrationToken",
+      name: "IWorkerRegistry",
       signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.ArbitrationToken__factory>;
+    ): Promise<Contracts.IWorkerRegistry__factory>;
     getContractFactory(
       name: "JobEscrow",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -65,10 +65,6 @@ declare module "hardhat/types/runtime" {
       name: "JobMarketplace",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.JobMarketplace__factory>;
-    getContractFactory(
-      name: "Negotiation",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.Negotiation__factory>;
     getContractFactory(
       name: "QuantumRandomnessOracle",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -133,10 +129,10 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.IRandomnessOracle>;
     getContractAt(
-      name: "ArbitrationToken",
+      name: "IWorkerRegistry",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
-    ): Promise<Contracts.ArbitrationToken>;
+    ): Promise<Contracts.IWorkerRegistry>;
     getContractAt(
       name: "JobEscrow",
       address: string | ethers.Addressable,
@@ -147,11 +143,6 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.JobMarketplace>;
-    getContractAt(
-      name: "Negotiation",
-      address: string | ethers.Addressable,
-      signer?: ethers.Signer
-    ): Promise<Contracts.Negotiation>;
     getContractAt(
       name: "QuantumRandomnessOracle",
       address: string | ethers.Addressable,
@@ -209,9 +200,9 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IRandomnessOracle>;
     deployContract(
-      name: "ArbitrationToken",
+      name: "IWorkerRegistry",
       signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.ArbitrationToken>;
+    ): Promise<Contracts.IWorkerRegistry>;
     deployContract(
       name: "JobEscrow",
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -220,10 +211,6 @@ declare module "hardhat/types/runtime" {
       name: "JobMarketplace",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.JobMarketplace>;
-    deployContract(
-      name: "Negotiation",
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.Negotiation>;
     deployContract(
       name: "QuantumRandomnessOracle",
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -288,10 +275,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IRandomnessOracle>;
     deployContract(
-      name: "ArbitrationToken",
+      name: "IWorkerRegistry",
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.ArbitrationToken>;
+    ): Promise<Contracts.IWorkerRegistry>;
     deployContract(
       name: "JobEscrow",
       args: any[],
@@ -302,11 +289,6 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.JobMarketplace>;
-    deployContract(
-      name: "Negotiation",
-      args: any[],
-      signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.Negotiation>;
     deployContract(
       name: "QuantumRandomnessOracle",
       args: any[],

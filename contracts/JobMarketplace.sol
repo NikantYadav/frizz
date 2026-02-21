@@ -188,11 +188,13 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         JobEscrow escrow = new JobEscrow(msg.sender, budget);
         jobs[_jobId].escrowContract = address(escrow);
 
-        // Transfer USDC to escrow
+        // Approve escrow to pull USDC from marketplace
         require(
-            usdc.transfer(address(escrow), budget),
-            "Escrow funding failed"
+            usdc.approve(address(escrow), budget),
+            "USDC approval failed"
         );
+        
+        // Escrow pulls USDC from marketplace (atomic)
         escrow.fundFromMarketplace();
 
         emit EscrowCreated(_jobId, address(escrow));

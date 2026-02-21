@@ -24,8 +24,29 @@ import type {
 } from "../common";
 
 export declare namespace ReputationSystem {
+  export type JobRecordStruct = {
+    worker: AddressLike;
+    client: AddressLike;
+    completed: boolean;
+    workerRated: boolean;
+    clientRated: boolean;
+  };
+
+  export type JobRecordStructOutput = [
+    worker: string,
+    client: string,
+    completed: boolean,
+    workerRated: boolean,
+    clientRated: boolean
+  ] & {
+    worker: string;
+    client: string;
+    completed: boolean;
+    workerRated: boolean;
+    clientRated: boolean;
+  };
+
   export type ReputationStruct = {
-    score: BigNumberish;
     completedJobs: BigNumberish;
     disputeWins: BigNumberish;
     disputeLosses: BigNumberish;
@@ -35,7 +56,6 @@ export declare namespace ReputationSystem {
   };
 
   export type ReputationStructOutput = [
-    score: bigint,
     completedJobs: bigint,
     disputeWins: bigint,
     disputeLosses: bigint,
@@ -43,7 +63,6 @@ export declare namespace ReputationSystem {
     ratingsSum: bigint,
     ratingCount: bigint
   ] & {
-    score: bigint;
     completedJobs: bigint;
     disputeWins: bigint;
     disputeLosses: bigint;
@@ -56,8 +75,15 @@ export declare namespace ReputationSystem {
 export interface ReputationSystemInterface extends Interface {
   getFunction(
     nameOrSignature:
+      | "areBothRatingsComplete"
       | "authorizedCallers"
+      | "disputeResolved"
+      | "getAverageRatingScaled"
+      | "getJobRecord"
       | "getReputation"
+      | "isDisputeRecorded"
+      | "isJobRecorded"
+      | "jobs"
       | "owner"
       | "recordDisputeResult"
       | "recordJobCompletion"
@@ -70,27 +96,53 @@ export interface ReputationSystemInterface extends Interface {
 
   getEvent(
     nameOrSignatureOrTopic:
+      | "DisputeResultRecorded"
+      | "JobCompleted"
       | "OwnershipTransferred"
       | "RatingReceived"
-      | "ReputationUpdated"
   ): EventFragment;
 
+  encodeFunctionData(
+    functionFragment: "areBothRatingsComplete",
+    values: [BigNumberish]
+  ): string;
   encodeFunctionData(
     functionFragment: "authorizedCallers",
     values: [AddressLike]
   ): string;
   encodeFunctionData(
+    functionFragment: "disputeResolved",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getAverageRatingScaled",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getJobRecord",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "getReputation",
     values: [AddressLike]
   ): string;
+  encodeFunctionData(
+    functionFragment: "isDisputeRecorded",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "isJobRecorded",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(functionFragment: "jobs", values: [BigNumberish]): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "recordDisputeResult",
-    values: [AddressLike, AddressLike]
+    values: [BigNumberish, AddressLike, AddressLike]
   ): string;
   encodeFunctionData(
     functionFragment: "recordJobCompletion",
-    values: [AddressLike, AddressLike, BigNumberish]
+    values: [BigNumberish, AddressLike, AddressLike, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "renounceOwnership",
@@ -110,17 +162,42 @@ export interface ReputationSystemInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "updateRating",
-    values: [AddressLike, BigNumberish]
+    values: [BigNumberish, AddressLike, AddressLike, BigNumberish]
   ): string;
 
   decodeFunctionResult(
+    functionFragment: "areBothRatingsComplete",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "authorizedCallers",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "disputeResolved",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getAverageRatingScaled",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getJobRecord",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
     functionFragment: "getReputation",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "isDisputeRecorded",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "isJobRecorded",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "jobs", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "recordDisputeResult",
@@ -152,6 +229,49 @@ export interface ReputationSystemInterface extends Interface {
   ): Result;
 }
 
+export namespace DisputeResultRecordedEvent {
+  export type InputTuple = [
+    disputeId: BigNumberish,
+    winner: AddressLike,
+    loser: AddressLike
+  ];
+  export type OutputTuple = [disputeId: bigint, winner: string, loser: string];
+  export interface OutputObject {
+    disputeId: bigint;
+    winner: string;
+    loser: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace JobCompletedEvent {
+  export type InputTuple = [
+    jobId: BigNumberish,
+    worker: AddressLike,
+    client: AddressLike,
+    volume: BigNumberish
+  ];
+  export type OutputTuple = [
+    jobId: bigint,
+    worker: string,
+    client: string,
+    volume: bigint
+  ];
+  export interface OutputObject {
+    jobId: bigint;
+    worker: string;
+    client: string;
+    volume: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
 export namespace OwnershipTransferredEvent {
   export type InputTuple = [previousOwner: AddressLike, newOwner: AddressLike];
   export type OutputTuple = [previousOwner: string, newOwner: string];
@@ -167,28 +287,22 @@ export namespace OwnershipTransferredEvent {
 
 export namespace RatingReceivedEvent {
   export type InputTuple = [
+    jobId: BigNumberish,
     user: AddressLike,
     rater: AddressLike,
     rating: BigNumberish
   ];
-  export type OutputTuple = [user: string, rater: string, rating: bigint];
+  export type OutputTuple = [
+    jobId: bigint,
+    user: string,
+    rater: string,
+    rating: bigint
+  ];
   export interface OutputObject {
+    jobId: bigint;
     user: string;
     rater: string;
     rating: bigint;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
-
-export namespace ReputationUpdatedEvent {
-  export type InputTuple = [user: AddressLike, newScore: BigNumberish];
-  export type OutputTuple = [user: string, newScore: bigint];
-  export interface OutputObject {
-    user: string;
-    newScore: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -239,9 +353,29 @@ export interface ReputationSystem extends BaseContract {
     event?: TCEvent
   ): Promise<this>;
 
+  areBothRatingsComplete: TypedContractMethod<
+    [_jobId: BigNumberish],
+    [boolean],
+    "view"
+  >;
+
   authorizedCallers: TypedContractMethod<
     [arg0: AddressLike],
     [boolean],
+    "view"
+  >;
+
+  disputeResolved: TypedContractMethod<[arg0: BigNumberish], [boolean], "view">;
+
+  getAverageRatingScaled: TypedContractMethod<
+    [_user: AddressLike],
+    [bigint],
+    "view"
+  >;
+
+  getJobRecord: TypedContractMethod<
+    [_jobId: BigNumberish],
+    [ReputationSystem.JobRecordStructOutput],
     "view"
   >;
 
@@ -251,16 +385,43 @@ export interface ReputationSystem extends BaseContract {
     "view"
   >;
 
+  isDisputeRecorded: TypedContractMethod<
+    [_disputeId: BigNumberish],
+    [boolean],
+    "view"
+  >;
+
+  isJobRecorded: TypedContractMethod<[_jobId: BigNumberish], [boolean], "view">;
+
+  jobs: TypedContractMethod<
+    [arg0: BigNumberish],
+    [
+      [string, string, boolean, boolean, boolean] & {
+        worker: string;
+        client: string;
+        completed: boolean;
+        workerRated: boolean;
+        clientRated: boolean;
+      }
+    ],
+    "view"
+  >;
+
   owner: TypedContractMethod<[], [string], "view">;
 
   recordDisputeResult: TypedContractMethod<
-    [_winner: AddressLike, _loser: AddressLike],
+    [_disputeId: BigNumberish, _winner: AddressLike, _loser: AddressLike],
     [void],
     "nonpayable"
   >;
 
   recordJobCompletion: TypedContractMethod<
-    [_worker: AddressLike, _client: AddressLike, _amount: BigNumberish],
+    [
+      _jobId: BigNumberish,
+      _worker: AddressLike,
+      _client: AddressLike,
+      _amount: BigNumberish
+    ],
     [void],
     "nonpayable"
   >;
@@ -270,8 +431,7 @@ export interface ReputationSystem extends BaseContract {
   reputations: TypedContractMethod<
     [arg0: AddressLike],
     [
-      [bigint, bigint, bigint, bigint, bigint, bigint, bigint] & {
-        score: bigint;
+      [bigint, bigint, bigint, bigint, bigint, bigint] & {
         completedJobs: bigint;
         disputeWins: bigint;
         disputeLosses: bigint;
@@ -296,7 +456,12 @@ export interface ReputationSystem extends BaseContract {
   >;
 
   updateRating: TypedContractMethod<
-    [_user: AddressLike, _rating: BigNumberish],
+    [
+      _jobId: BigNumberish,
+      _user: AddressLike,
+      _rater: AddressLike,
+      _rating: BigNumberish
+    ],
     [void],
     "nonpayable"
   >;
@@ -306,8 +471,24 @@ export interface ReputationSystem extends BaseContract {
   ): T;
 
   getFunction(
+    nameOrSignature: "areBothRatingsComplete"
+  ): TypedContractMethod<[_jobId: BigNumberish], [boolean], "view">;
+  getFunction(
     nameOrSignature: "authorizedCallers"
   ): TypedContractMethod<[arg0: AddressLike], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "disputeResolved"
+  ): TypedContractMethod<[arg0: BigNumberish], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "getAverageRatingScaled"
+  ): TypedContractMethod<[_user: AddressLike], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "getJobRecord"
+  ): TypedContractMethod<
+    [_jobId: BigNumberish],
+    [ReputationSystem.JobRecordStructOutput],
+    "view"
+  >;
   getFunction(
     nameOrSignature: "getReputation"
   ): TypedContractMethod<
@@ -316,19 +497,45 @@ export interface ReputationSystem extends BaseContract {
     "view"
   >;
   getFunction(
+    nameOrSignature: "isDisputeRecorded"
+  ): TypedContractMethod<[_disputeId: BigNumberish], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "isJobRecorded"
+  ): TypedContractMethod<[_jobId: BigNumberish], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "jobs"
+  ): TypedContractMethod<
+    [arg0: BigNumberish],
+    [
+      [string, string, boolean, boolean, boolean] & {
+        worker: string;
+        client: string;
+        completed: boolean;
+        workerRated: boolean;
+        clientRated: boolean;
+      }
+    ],
+    "view"
+  >;
+  getFunction(
     nameOrSignature: "owner"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
     nameOrSignature: "recordDisputeResult"
   ): TypedContractMethod<
-    [_winner: AddressLike, _loser: AddressLike],
+    [_disputeId: BigNumberish, _winner: AddressLike, _loser: AddressLike],
     [void],
     "nonpayable"
   >;
   getFunction(
     nameOrSignature: "recordJobCompletion"
   ): TypedContractMethod<
-    [_worker: AddressLike, _client: AddressLike, _amount: BigNumberish],
+    [
+      _jobId: BigNumberish,
+      _worker: AddressLike,
+      _client: AddressLike,
+      _amount: BigNumberish
+    ],
     [void],
     "nonpayable"
   >;
@@ -340,8 +547,7 @@ export interface ReputationSystem extends BaseContract {
   ): TypedContractMethod<
     [arg0: AddressLike],
     [
-      [bigint, bigint, bigint, bigint, bigint, bigint, bigint] & {
-        score: bigint;
+      [bigint, bigint, bigint, bigint, bigint, bigint] & {
         completedJobs: bigint;
         disputeWins: bigint;
         disputeLosses: bigint;
@@ -365,11 +571,30 @@ export interface ReputationSystem extends BaseContract {
   getFunction(
     nameOrSignature: "updateRating"
   ): TypedContractMethod<
-    [_user: AddressLike, _rating: BigNumberish],
+    [
+      _jobId: BigNumberish,
+      _user: AddressLike,
+      _rater: AddressLike,
+      _rating: BigNumberish
+    ],
     [void],
     "nonpayable"
   >;
 
+  getEvent(
+    key: "DisputeResultRecorded"
+  ): TypedContractEvent<
+    DisputeResultRecordedEvent.InputTuple,
+    DisputeResultRecordedEvent.OutputTuple,
+    DisputeResultRecordedEvent.OutputObject
+  >;
+  getEvent(
+    key: "JobCompleted"
+  ): TypedContractEvent<
+    JobCompletedEvent.InputTuple,
+    JobCompletedEvent.OutputTuple,
+    JobCompletedEvent.OutputObject
+  >;
   getEvent(
     key: "OwnershipTransferred"
   ): TypedContractEvent<
@@ -384,15 +609,30 @@ export interface ReputationSystem extends BaseContract {
     RatingReceivedEvent.OutputTuple,
     RatingReceivedEvent.OutputObject
   >;
-  getEvent(
-    key: "ReputationUpdated"
-  ): TypedContractEvent<
-    ReputationUpdatedEvent.InputTuple,
-    ReputationUpdatedEvent.OutputTuple,
-    ReputationUpdatedEvent.OutputObject
-  >;
 
   filters: {
+    "DisputeResultRecorded(uint256,address,address)": TypedContractEvent<
+      DisputeResultRecordedEvent.InputTuple,
+      DisputeResultRecordedEvent.OutputTuple,
+      DisputeResultRecordedEvent.OutputObject
+    >;
+    DisputeResultRecorded: TypedContractEvent<
+      DisputeResultRecordedEvent.InputTuple,
+      DisputeResultRecordedEvent.OutputTuple,
+      DisputeResultRecordedEvent.OutputObject
+    >;
+
+    "JobCompleted(uint256,address,address,uint256)": TypedContractEvent<
+      JobCompletedEvent.InputTuple,
+      JobCompletedEvent.OutputTuple,
+      JobCompletedEvent.OutputObject
+    >;
+    JobCompleted: TypedContractEvent<
+      JobCompletedEvent.InputTuple,
+      JobCompletedEvent.OutputTuple,
+      JobCompletedEvent.OutputObject
+    >;
+
     "OwnershipTransferred(address,address)": TypedContractEvent<
       OwnershipTransferredEvent.InputTuple,
       OwnershipTransferredEvent.OutputTuple,
@@ -404,7 +644,7 @@ export interface ReputationSystem extends BaseContract {
       OwnershipTransferredEvent.OutputObject
     >;
 
-    "RatingReceived(address,address,uint8)": TypedContractEvent<
+    "RatingReceived(uint256,address,address,uint8)": TypedContractEvent<
       RatingReceivedEvent.InputTuple,
       RatingReceivedEvent.OutputTuple,
       RatingReceivedEvent.OutputObject
@@ -413,17 +653,6 @@ export interface ReputationSystem extends BaseContract {
       RatingReceivedEvent.InputTuple,
       RatingReceivedEvent.OutputTuple,
       RatingReceivedEvent.OutputObject
-    >;
-
-    "ReputationUpdated(address,uint256)": TypedContractEvent<
-      ReputationUpdatedEvent.InputTuple,
-      ReputationUpdatedEvent.OutputTuple,
-      ReputationUpdatedEvent.OutputObject
-    >;
-    ReputationUpdated: TypedContractEvent<
-      ReputationUpdatedEvent.InputTuple,
-      ReputationUpdatedEvent.OutputTuple,
-      ReputationUpdatedEvent.OutputObject
     >;
   };
 }

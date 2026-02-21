@@ -32,6 +32,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         uint256 budget;
         bool isActive;
         bool isCompleted;
+        bool isFunded; // Escrow funded and job is visible
         address selectedWorker;
         address escrowContract;
         string workSubmissionHash; // IPFS hash
@@ -53,6 +54,13 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     mapping(address => uint256[]) public clientJobs;
     mapping(address => uint256[]) public workerApplications;
     mapping(address => uint256[]) public workerJobs; // Jobs where worker is selected
+    
+    // Optimized lookups
+    mapping(uint256 => mapping(address => bool)) public hasApplied; // jobId => worker => applied
+    mapping(uint256 => bool) public workerRated; // jobId => rated
+    mapping(uint256 => bool) public clientRated; // jobId => rated
+    uint256[] public activeJobIds; // List of active job IDs
+    mapping(uint256 => uint256) public activeJobIndex; // jobId => index in activeJobIds
 
     event JobPosted(
         uint256 indexed jobId,
@@ -61,6 +69,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         uint256 categoryId,
         uint256 budget
     );
+    event JobCancelled(uint256 indexed jobId);
     event ApplicationSubmitted(uint256 indexed jobId, address indexed worker);
     event WorkerSelected(uint256 indexed jobId, address indexed worker);
     event EscrowCreated(uint256 indexed jobId, address escrowContract);
@@ -98,7 +107,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Post a new job
+     * @dev Post a new job (creates job but not visible until funded)
      */
     function postJob(
         string memory _title,
@@ -120,8 +129,9 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
             skills: _skills,
             categoryId: _categoryId,
             budget: _budget,
-            isActive: true,
+            isActive: false, // Not active until funded
             isCompleted: false,
+            isFunded: false,
             selectedWorker: address(0),
             escrowContract: address(0),
             workSubmissionHash: "",
@@ -137,19 +147,85 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     }
 
     /**
+     * @dev Fund job escrow (makes job visible and active)
+     * Must be called after postJob to activate the job
+     */
+    function fundJobEscrow(
+        uint256 _jobId
+    ) external onlyClient(_jobId) nonReentrant {
+        Job storage job = jobs[_jobId];
+        require(!job.isFunded, "Already funded");
+        require(job.escrowContract == address(0), "Escrow already created");
+
+        uint256 budget = job.budget;
+        
+        // Transfer USDC from client to marketplace
+        require(
+            usdc.transferFrom(msg.sender, address(this), budget),
+            "USDC transfer failed"
+        );
+
+        // Create new escrow contract
+        JobEscrow escrow = new JobEscrow(msg.sender, budget);
+        job.escrowContract = address(escrow);
+
+        // Approve escrow to pull USDC from marketplace
+        require(
+            usdc.approve(address(escrow), budget),
+            "USDC approval failed"
+        );
+        
+        // Escrow pulls USDC from marketplace (atomic)
+        escrow.fundFromMarketplace();
+
+        // Mark job as funded and active
+        job.isFunded = true;
+        job.isActive = true;
+        
+        // Add to active jobs list
+        activeJobIndex[_jobId] = activeJobIds.length;
+        activeJobIds.push(_jobId);
+
+        emit EscrowCreated(_jobId, address(escrow));
+    }
+
+    /**
+     * @dev Cancel unfunded job
+     * Can only cancel before funding
+     */
+    function cancelJob(uint256 _jobId) external onlyClient(_jobId) {
+        Job storage job = jobs[_jobId];
+        require(!job.isFunded, "Cannot cancel funded job");
+        require(job.isActive == false, "Job already active");
+        
+        job.isActive = false;
+        
+        emit JobCancelled(_jobId);
+    }
+
+    /**
      * @dev Apply to a job with IPFS hashes for cover letter and work history
+     * Worker must be registered in WorkerRegistry
      */
     function applyToJob(
         uint256 _jobId,
         string memory _coverLetterHash,
         string memory _workHistoryHash
     ) external {
-        require(jobs[_jobId].isActive, "Job not active");
-        require(
-            jobs[_jobId].selectedWorker == address(0),
-            "Worker already selected"
-        );
+        Job storage job = jobs[_jobId];
+        require(job.isFunded, "Job not funded yet");
+        require(job.isActive, "Job not active");
+        require(job.selectedWorker == address(0), "Worker already selected");
         require(bytes(_coverLetterHash).length > 0, "Cover letter required");
+        require(!hasApplied[_jobId][msg.sender], "Already applied");
+        
+        // Verify worker is registered
+        require(
+            workerRegistry.isActiveWorker(msg.sender),
+            "Worker not registered"
+        );
+
+        hasApplied[_jobId][msg.sender] = true;
 
         jobApplications[_jobId].push(
             Application({
@@ -166,63 +242,27 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Create escrow and fund it
-     */
-    function createAndFundEscrow(
-        uint256 _jobId
-    ) external onlyClient(_jobId) nonReentrant {
-        require(
-            jobs[_jobId].escrowContract == address(0),
-            "Escrow already created"
-        );
-
-        uint256 budget = jobs[_jobId].budget;
-        
-        // Transfer USDC from client to marketplace
-        require(
-            usdc.transferFrom(msg.sender, address(this), budget),
-            "USDC transfer failed"
-        );
-
-        // Create new escrow contract
-        JobEscrow escrow = new JobEscrow(msg.sender, budget);
-        jobs[_jobId].escrowContract = address(escrow);
-
-        // Approve escrow to pull USDC from marketplace
-        require(
-            usdc.approve(address(escrow), budget),
-            "USDC approval failed"
-        );
-        
-        // Escrow pulls USDC from marketplace (atomic)
-        escrow.fundFromMarketplace();
-
-        emit EscrowCreated(_jobId, address(escrow));
-    }
-
-    /**
      * @dev Select a worker for the job
      */
     function selectWorker(
         uint256 _jobId,
         address _worker
     ) external onlyClient(_jobId) {
-        require(jobs[_jobId].isActive, "Job not active");
-        require(
-            jobs[_jobId].escrowContract != address(0),
-            "Escrow not created"
-        );
-        require(
-            jobs[_jobId].selectedWorker == address(0),
-            "Worker already selected"
-        );
-        require(_hasApplied(_jobId, _worker), "Worker has not applied");
+        Job storage job = jobs[_jobId];
+        require(job.isFunded, "Job not funded");
+        require(job.isActive, "Job not active");
+        require(job.escrowContract != address(0), "Escrow not created");
+        require(job.selectedWorker == address(0), "Worker already selected");
+        require(hasApplied[_jobId][_worker], "Worker has not applied");
 
-        jobs[_jobId].selectedWorker = _worker;
+        job.selectedWorker = _worker;
         workerJobs[_worker].push(_jobId);
 
         // Set worker in escrow
-        JobEscrow(jobs[_jobId].escrowContract).setWorker(_worker);
+        JobEscrow(job.escrowContract).setWorker(_worker);
+        
+        // Remove from active jobs list
+        _removeFromActiveJobs(_jobId);
 
         emit WorkerSelected(_jobId, _worker);
     }
@@ -249,29 +289,31 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     function acceptWorkAndPay(
         uint256 _jobId
     ) external onlyClient(_jobId) nonReentrant {
-        require(jobs[_jobId].workSubmitted, "Work not submitted");
-        require(!jobs[_jobId].isCompleted, "Already completed");
-        require(!jobs[_jobId].isDisputed, "Job is disputed");
+        Job storage job = jobs[_jobId];
+        require(job.selectedWorker != address(0), "No worker selected");
+        require(job.workSubmitted, "Work not submitted");
+        require(!job.isCompleted, "Already completed");
+        require(!job.isDisputed, "Job is disputed");
 
-        jobs[_jobId].isCompleted = true;
-        jobs[_jobId].isActive = false;
+        job.isCompleted = true;
+        job.isActive = false;
 
         // Release payment through escrow
-        JobEscrow escrow = JobEscrow(jobs[_jobId].escrowContract);
+        JobEscrow escrow = JobEscrow(job.escrowContract);
         escrow.releaseFullPayment();
 
         emit PaymentReleased(
             _jobId,
-            jobs[_jobId].selectedWorker,
-            jobs[_jobId].budget
+            job.selectedWorker,
+            job.budget
         );
 
         // Update reputation
         reputationSystem.recordJobCompletion(
             _jobId,
-            jobs[_jobId].selectedWorker,
-            jobs[_jobId].client,
-            jobs[_jobId].budget
+            job.selectedWorker,
+            job.client,
+            job.budget
         );
     }
 
@@ -283,6 +325,10 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         uint8 _rating
     ) external onlyClient(_jobId) {
         require(jobs[_jobId].isCompleted, "Job not completed");
+        require(!clientRated[_jobId], "Already rated");
+        
+        clientRated[_jobId] = true;
+        
         reputationSystem.updateRating(
             _jobId,
             jobs[_jobId].selectedWorker,
@@ -299,6 +345,10 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         uint8 _rating
     ) external onlySelectedWorker(_jobId) {
         require(jobs[_jobId].isCompleted, "Job not completed");
+        require(!workerRated[_jobId], "Already rated");
+        
+        workerRated[_jobId] = true;
+        
         reputationSystem.updateRating(
             _jobId,
             jobs[_jobId].client,
@@ -438,74 +488,33 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Check if worker has applied to job
+     * @dev Remove job from active jobs list (internal)
      */
-    function _hasApplied(
-        uint256 _jobId,
-        address _worker
-    ) internal view returns (bool) {
-        Application[] memory applications = jobApplications[_jobId];
-        for (uint256 i = 0; i < applications.length; i++) {
-            if (applications[i].worker == _worker) {
-                return true;
-            }
+    function _removeFromActiveJobs(uint256 _jobId) internal {
+        uint256 index = activeJobIndex[_jobId];
+        uint256 lastIndex = activeJobIds.length - 1;
+        
+        if (index != lastIndex) {
+            uint256 lastJobId = activeJobIds[lastIndex];
+            activeJobIds[index] = lastJobId;
+            activeJobIndex[lastJobId] = index;
         }
-        return false;
+        
+        activeJobIds.pop();
+        delete activeJobIndex[_jobId];
     }
 
     /**
-     * @dev Get active jobs (for broadcasting to workers)
+     * @dev Get active jobs (O(1) access, no loops)
      */
     function getActiveJobs() external view returns (uint256[] memory) {
-        uint256 activeCount = 0;
-        for (uint256 i = 1; i <= jobCounter; i++) {
-            if (jobs[i].isActive && jobs[i].selectedWorker == address(0)) {
-                activeCount++;
-            }
-        }
-
-        uint256[] memory activeJobs = new uint256[](activeCount);
-        uint256 index = 0;
-        for (uint256 i = 1; i <= jobCounter; i++) {
-            if (jobs[i].isActive && jobs[i].selectedWorker == address(0)) {
-                activeJobs[index] = i;
-                index++;
-            }
-        }
-
-        return activeJobs;
+        return activeJobIds;
     }
 
     /**
-     * @dev Filter jobs by category
+     * @dev Get active job count
      */
-    function getJobsByCategory(
-        uint256 _categoryId
-    ) external view returns (uint256[] memory) {
-        uint256 matchCount = 0;
-        for (uint256 i = 1; i <= jobCounter; i++) {
-            if (
-                jobs[i].isActive &&
-                jobs[i].selectedWorker == address(0) &&
-                jobs[i].categoryId == _categoryId
-            ) {
-                matchCount++;
-            }
-        }
-
-        uint256[] memory matchedJobs = new uint256[](matchCount);
-        uint256 index = 0;
-        for (uint256 i = 1; i <= jobCounter; i++) {
-            if (
-                jobs[i].isActive &&
-                jobs[i].selectedWorker == address(0) &&
-                jobs[i].categoryId == _categoryId
-            ) {
-                matchedJobs[index] = i;
-                index++;
-            }
-        }
-
-        return matchedJobs;
+    function getActiveJobCount() external view returns (uint256) {
+        return activeJobIds.length;
     }
 }

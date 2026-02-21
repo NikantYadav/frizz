@@ -53,6 +53,7 @@ export declare namespace JobMarketplace {
     budget: BigNumberish;
     isActive: boolean;
     isCompleted: boolean;
+    isFunded: boolean;
     selectedWorker: AddressLike;
     escrowContract: AddressLike;
     workSubmissionHash: string;
@@ -71,6 +72,7 @@ export declare namespace JobMarketplace {
     budget: bigint,
     isActive: boolean,
     isCompleted: boolean,
+    isFunded: boolean,
     selectedWorker: string,
     escrowContract: string,
     workSubmissionHash: string,
@@ -87,6 +89,7 @@ export declare namespace JobMarketplace {
     budget: bigint;
     isActive: boolean;
     isCompleted: boolean;
+    isFunded: boolean;
     selectedWorker: string;
     escrowContract: string;
     workSubmissionHash: string;
@@ -101,22 +104,25 @@ export interface JobMarketplaceInterface extends Interface {
     nameOrSignature:
       | "USDC_ADDRESS"
       | "acceptWorkAndPay"
+      | "activeJobIds"
+      | "activeJobIndex"
       | "applyToJob"
       | "arbitration"
+      | "cancelJob"
       | "clientJobs"
-      | "createAndFundEscrow"
-      | "createJobFromNegotiation"
+      | "clientRated"
+      | "fundJobEscrow"
+      | "getActiveJobCount"
       | "getActiveJobs"
       | "getApplications"
       | "getClientJobs"
       | "getJob"
-      | "getJobsByCategory"
       | "getWorkerApplications"
       | "getWorkerJobs"
+      | "hasApplied"
       | "jobApplications"
       | "jobCounter"
       | "jobs"
-      | "negotiation"
       | "owner"
       | "postJob"
       | "raiseDispute"
@@ -131,6 +137,7 @@ export interface JobMarketplaceInterface extends Interface {
       | "usdc"
       | "workerApplications"
       | "workerJobs"
+      | "workerRated"
       | "workerRegistry"
   ): FunctionFragment;
 
@@ -140,6 +147,7 @@ export interface JobMarketplaceInterface extends Interface {
       | "DisputeRaised"
       | "DisputeResolved"
       | "EscrowCreated"
+      | "JobCancelled"
       | "JobPosted"
       | "OwnershipTransferred"
       | "PaymentReleased"
@@ -156,6 +164,14 @@ export interface JobMarketplaceInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "activeJobIds",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "activeJobIndex",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "applyToJob",
     values: [BigNumberish, string, string]
   ): string;
@@ -164,16 +180,24 @@ export interface JobMarketplaceInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "cancelJob",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "clientJobs",
     values: [AddressLike, BigNumberish]
   ): string;
   encodeFunctionData(
-    functionFragment: "createAndFundEscrow",
+    functionFragment: "clientRated",
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
-    functionFragment: "createJobFromNegotiation",
-    values: [BigNumberish, BigNumberish]
+    functionFragment: "fundJobEscrow",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getActiveJobCount",
+    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "getActiveJobs",
@@ -192,16 +216,16 @@ export interface JobMarketplaceInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
-    functionFragment: "getJobsByCategory",
-    values: [BigNumberish]
-  ): string;
-  encodeFunctionData(
     functionFragment: "getWorkerApplications",
     values: [AddressLike]
   ): string;
   encodeFunctionData(
     functionFragment: "getWorkerJobs",
     values: [AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "hasApplied",
+    values: [BigNumberish, AddressLike]
   ): string;
   encodeFunctionData(
     functionFragment: "jobApplications",
@@ -212,10 +236,6 @@ export interface JobMarketplaceInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(functionFragment: "jobs", values: [BigNumberish]): string;
-  encodeFunctionData(
-    functionFragment: "negotiation",
-    values?: undefined
-  ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "postJob",
@@ -267,6 +287,10 @@ export interface JobMarketplaceInterface extends Interface {
     values: [AddressLike, BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "workerRated",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "workerRegistry",
     values?: undefined
   ): string;
@@ -279,18 +303,31 @@ export interface JobMarketplaceInterface extends Interface {
     functionFragment: "acceptWorkAndPay",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "activeJobIds",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "activeJobIndex",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "applyToJob", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "arbitration",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "cancelJob", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "clientJobs", data: BytesLike): Result;
   decodeFunctionResult(
-    functionFragment: "createAndFundEscrow",
+    functionFragment: "clientRated",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "createJobFromNegotiation",
+    functionFragment: "fundJobEscrow",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getActiveJobCount",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -307,10 +344,6 @@ export interface JobMarketplaceInterface extends Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "getJob", data: BytesLike): Result;
   decodeFunctionResult(
-    functionFragment: "getJobsByCategory",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
     functionFragment: "getWorkerApplications",
     data: BytesLike
   ): Result;
@@ -318,16 +351,13 @@ export interface JobMarketplaceInterface extends Interface {
     functionFragment: "getWorkerJobs",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "hasApplied", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "jobApplications",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "jobCounter", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "jobs", data: BytesLike): Result;
-  decodeFunctionResult(
-    functionFragment: "negotiation",
-    data: BytesLike
-  ): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "postJob", data: BytesLike): Result;
   decodeFunctionResult(
@@ -363,6 +393,10 @@ export interface JobMarketplaceInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "workerJobs", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "workerRated",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "workerRegistry",
     data: BytesLike
@@ -414,6 +448,18 @@ export namespace EscrowCreatedEvent {
   export interface OutputObject {
     jobId: bigint;
     escrowContract: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace JobCancelledEvent {
+  export type InputTuple = [jobId: BigNumberish];
+  export type OutputTuple = [jobId: bigint];
+  export interface OutputObject {
+    jobId: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -557,6 +603,10 @@ export interface JobMarketplace extends BaseContract {
     "nonpayable"
   >;
 
+  activeJobIds: TypedContractMethod<[arg0: BigNumberish], [bigint], "view">;
+
+  activeJobIndex: TypedContractMethod<[arg0: BigNumberish], [bigint], "view">;
+
   applyToJob: TypedContractMethod<
     [_jobId: BigNumberish, _coverLetterHash: string, _workHistoryHash: string],
     [void],
@@ -565,23 +615,23 @@ export interface JobMarketplace extends BaseContract {
 
   arbitration: TypedContractMethod<[], [string], "view">;
 
+  cancelJob: TypedContractMethod<[_jobId: BigNumberish], [void], "nonpayable">;
+
   clientJobs: TypedContractMethod<
     [arg0: AddressLike, arg1: BigNumberish],
     [bigint],
     "view"
   >;
 
-  createAndFundEscrow: TypedContractMethod<
+  clientRated: TypedContractMethod<[arg0: BigNumberish], [boolean], "view">;
+
+  fundJobEscrow: TypedContractMethod<
     [_jobId: BigNumberish],
     [void],
     "nonpayable"
   >;
 
-  createJobFromNegotiation: TypedContractMethod<
-    [_negotiationId: BigNumberish, _categoryId: BigNumberish],
-    [bigint],
-    "nonpayable"
-  >;
+  getActiveJobCount: TypedContractMethod<[], [bigint], "view">;
 
   getActiveJobs: TypedContractMethod<[], [bigint[]], "view">;
 
@@ -603,12 +653,6 @@ export interface JobMarketplace extends BaseContract {
     "view"
   >;
 
-  getJobsByCategory: TypedContractMethod<
-    [_categoryId: BigNumberish],
-    [bigint[]],
-    "view"
-  >;
-
   getWorkerApplications: TypedContractMethod<
     [_worker: AddressLike],
     [bigint[]],
@@ -618,6 +662,12 @@ export interface JobMarketplace extends BaseContract {
   getWorkerJobs: TypedContractMethod<
     [_worker: AddressLike],
     [bigint[]],
+    "view"
+  >;
+
+  hasApplied: TypedContractMethod<
+    [arg0: BigNumberish, arg1: AddressLike],
+    [boolean],
     "view"
   >;
 
@@ -649,6 +699,7 @@ export interface JobMarketplace extends BaseContract {
         bigint,
         boolean,
         boolean,
+        boolean,
         string,
         string,
         string,
@@ -665,6 +716,7 @@ export interface JobMarketplace extends BaseContract {
         budget: bigint;
         isActive: boolean;
         isCompleted: boolean;
+        isFunded: boolean;
         selectedWorker: string;
         escrowContract: string;
         workSubmissionHash: string;
@@ -675,8 +727,6 @@ export interface JobMarketplace extends BaseContract {
     ],
     "view"
   >;
-
-  negotiation: TypedContractMethod<[], [string], "view">;
 
   owner: TypedContractMethod<[], [string], "view">;
 
@@ -752,6 +802,8 @@ export interface JobMarketplace extends BaseContract {
     "view"
   >;
 
+  workerRated: TypedContractMethod<[arg0: BigNumberish], [boolean], "view">;
+
   workerRegistry: TypedContractMethod<[], [string], "view">;
 
   getFunction<T extends ContractMethod = ContractMethod>(
@@ -765,6 +817,12 @@ export interface JobMarketplace extends BaseContract {
     nameOrSignature: "acceptWorkAndPay"
   ): TypedContractMethod<[_jobId: BigNumberish], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "activeJobIds"
+  ): TypedContractMethod<[arg0: BigNumberish], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "activeJobIndex"
+  ): TypedContractMethod<[arg0: BigNumberish], [bigint], "view">;
+  getFunction(
     nameOrSignature: "applyToJob"
   ): TypedContractMethod<
     [_jobId: BigNumberish, _coverLetterHash: string, _workHistoryHash: string],
@@ -775,6 +833,9 @@ export interface JobMarketplace extends BaseContract {
     nameOrSignature: "arbitration"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
+    nameOrSignature: "cancelJob"
+  ): TypedContractMethod<[_jobId: BigNumberish], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "clientJobs"
   ): TypedContractMethod<
     [arg0: AddressLike, arg1: BigNumberish],
@@ -782,15 +843,14 @@ export interface JobMarketplace extends BaseContract {
     "view"
   >;
   getFunction(
-    nameOrSignature: "createAndFundEscrow"
+    nameOrSignature: "clientRated"
+  ): TypedContractMethod<[arg0: BigNumberish], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "fundJobEscrow"
   ): TypedContractMethod<[_jobId: BigNumberish], [void], "nonpayable">;
   getFunction(
-    nameOrSignature: "createJobFromNegotiation"
-  ): TypedContractMethod<
-    [_negotiationId: BigNumberish, _categoryId: BigNumberish],
-    [bigint],
-    "nonpayable"
-  >;
+    nameOrSignature: "getActiveJobCount"
+  ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "getActiveJobs"
   ): TypedContractMethod<[], [bigint[]], "view">;
@@ -812,14 +872,18 @@ export interface JobMarketplace extends BaseContract {
     "view"
   >;
   getFunction(
-    nameOrSignature: "getJobsByCategory"
-  ): TypedContractMethod<[_categoryId: BigNumberish], [bigint[]], "view">;
-  getFunction(
     nameOrSignature: "getWorkerApplications"
   ): TypedContractMethod<[_worker: AddressLike], [bigint[]], "view">;
   getFunction(
     nameOrSignature: "getWorkerJobs"
   ): TypedContractMethod<[_worker: AddressLike], [bigint[]], "view">;
+  getFunction(
+    nameOrSignature: "hasApplied"
+  ): TypedContractMethod<
+    [arg0: BigNumberish, arg1: AddressLike],
+    [boolean],
+    "view"
+  >;
   getFunction(
     nameOrSignature: "jobApplications"
   ): TypedContractMethod<
@@ -852,6 +916,7 @@ export interface JobMarketplace extends BaseContract {
         bigint,
         boolean,
         boolean,
+        boolean,
         string,
         string,
         string,
@@ -868,6 +933,7 @@ export interface JobMarketplace extends BaseContract {
         budget: bigint;
         isActive: boolean;
         isCompleted: boolean;
+        isFunded: boolean;
         selectedWorker: string;
         escrowContract: string;
         workSubmissionHash: string;
@@ -878,9 +944,6 @@ export interface JobMarketplace extends BaseContract {
     ],
     "view"
   >;
-  getFunction(
-    nameOrSignature: "negotiation"
-  ): TypedContractMethod<[], [string], "view">;
   getFunction(
     nameOrSignature: "owner"
   ): TypedContractMethod<[], [string], "view">;
@@ -958,6 +1021,9 @@ export interface JobMarketplace extends BaseContract {
     "view"
   >;
   getFunction(
+    nameOrSignature: "workerRated"
+  ): TypedContractMethod<[arg0: BigNumberish], [boolean], "view">;
+  getFunction(
     nameOrSignature: "workerRegistry"
   ): TypedContractMethod<[], [string], "view">;
 
@@ -988,6 +1054,13 @@ export interface JobMarketplace extends BaseContract {
     EscrowCreatedEvent.InputTuple,
     EscrowCreatedEvent.OutputTuple,
     EscrowCreatedEvent.OutputObject
+  >;
+  getEvent(
+    key: "JobCancelled"
+  ): TypedContractEvent<
+    JobCancelledEvent.InputTuple,
+    JobCancelledEvent.OutputTuple,
+    JobCancelledEvent.OutputObject
   >;
   getEvent(
     key: "JobPosted"
@@ -1068,6 +1141,17 @@ export interface JobMarketplace extends BaseContract {
       EscrowCreatedEvent.InputTuple,
       EscrowCreatedEvent.OutputTuple,
       EscrowCreatedEvent.OutputObject
+    >;
+
+    "JobCancelled(uint256)": TypedContractEvent<
+      JobCancelledEvent.InputTuple,
+      JobCancelledEvent.OutputTuple,
+      JobCancelledEvent.OutputObject
+    >;
+    JobCancelled: TypedContractEvent<
+      JobCancelledEvent.InputTuple,
+      JobCancelledEvent.OutputTuple,
+      JobCancelledEvent.OutputObject
     >;
 
     "JobPosted(uint256,address,string,uint256,uint256)": TypedContractEvent<

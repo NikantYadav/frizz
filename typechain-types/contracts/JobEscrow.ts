@@ -29,7 +29,9 @@ export interface JobEscrowInterface extends Interface {
       | "USDC_ADDRESS"
       | "client"
       | "fundFromMarketplace"
+      | "isCompleted"
       | "isDisputed"
+      | "isFunded"
       | "lockedAmount"
       | "marketplace"
       | "payWorker"
@@ -46,8 +48,10 @@ export interface JobEscrowInterface extends Interface {
   getEvent(
     nameOrSignatureOrTopic:
       | "DisputeRaised"
+      | "EscrowCompleted"
       | "FullPaymentReleased"
       | "Funded"
+      | "PartialPaymentReleased"
       | "RefundIssued"
   ): EventFragment;
 
@@ -61,9 +65,14 @@ export interface JobEscrowInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "isCompleted",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "isDisputed",
     values?: undefined
   ): string;
+  encodeFunctionData(functionFragment: "isFunded", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "lockedAmount",
     values?: undefined
@@ -112,7 +121,12 @@ export interface JobEscrowInterface extends Interface {
     functionFragment: "fundFromMarketplace",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "isCompleted",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "isDisputed", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "isFunded", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "lockedAmount",
     data: BytesLike
@@ -157,10 +171,21 @@ export namespace DisputeRaisedEvent {
   export type LogDescription = TypedLogDescription<Event>;
 }
 
+export namespace EscrowCompletedEvent {
+  export type InputTuple = [];
+  export type OutputTuple = [];
+  export interface OutputObject {}
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
 export namespace FullPaymentReleasedEvent {
-  export type InputTuple = [amount: BigNumberish];
-  export type OutputTuple = [amount: bigint];
+  export type InputTuple = [worker: AddressLike, amount: BigNumberish];
+  export type OutputTuple = [worker: string, amount: bigint];
   export interface OutputObject {
+    worker: string;
     amount: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
@@ -181,10 +206,24 @@ export namespace FundedEvent {
   export type LogDescription = TypedLogDescription<Event>;
 }
 
-export namespace RefundIssuedEvent {
-  export type InputTuple = [amount: BigNumberish];
-  export type OutputTuple = [amount: bigint];
+export namespace PartialPaymentReleasedEvent {
+  export type InputTuple = [worker: AddressLike, amount: BigNumberish];
+  export type OutputTuple = [worker: string, amount: bigint];
   export interface OutputObject {
+    worker: string;
+    amount: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace RefundIssuedEvent {
+  export type InputTuple = [client: AddressLike, amount: BigNumberish];
+  export type OutputTuple = [client: string, amount: bigint];
+  export interface OutputObject {
+    client: string;
     amount: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
@@ -242,7 +281,11 @@ export interface JobEscrow extends BaseContract {
 
   fundFromMarketplace: TypedContractMethod<[], [void], "nonpayable">;
 
+  isCompleted: TypedContractMethod<[], [boolean], "view">;
+
   isDisputed: TypedContractMethod<[], [boolean], "view">;
+
+  isFunded: TypedContractMethod<[], [boolean], "view">;
 
   lockedAmount: TypedContractMethod<[], [bigint], "view">;
 
@@ -284,7 +327,13 @@ export interface JobEscrow extends BaseContract {
     nameOrSignature: "fundFromMarketplace"
   ): TypedContractMethod<[], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "isCompleted"
+  ): TypedContractMethod<[], [boolean], "view">;
+  getFunction(
     nameOrSignature: "isDisputed"
+  ): TypedContractMethod<[], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "isFunded"
   ): TypedContractMethod<[], [boolean], "view">;
   getFunction(
     nameOrSignature: "lockedAmount"
@@ -328,6 +377,13 @@ export interface JobEscrow extends BaseContract {
     DisputeRaisedEvent.OutputObject
   >;
   getEvent(
+    key: "EscrowCompleted"
+  ): TypedContractEvent<
+    EscrowCompletedEvent.InputTuple,
+    EscrowCompletedEvent.OutputTuple,
+    EscrowCompletedEvent.OutputObject
+  >;
+  getEvent(
     key: "FullPaymentReleased"
   ): TypedContractEvent<
     FullPaymentReleasedEvent.InputTuple,
@@ -340,6 +396,13 @@ export interface JobEscrow extends BaseContract {
     FundedEvent.InputTuple,
     FundedEvent.OutputTuple,
     FundedEvent.OutputObject
+  >;
+  getEvent(
+    key: "PartialPaymentReleased"
+  ): TypedContractEvent<
+    PartialPaymentReleasedEvent.InputTuple,
+    PartialPaymentReleasedEvent.OutputTuple,
+    PartialPaymentReleasedEvent.OutputObject
   >;
   getEvent(
     key: "RefundIssued"
@@ -361,7 +424,18 @@ export interface JobEscrow extends BaseContract {
       DisputeRaisedEvent.OutputObject
     >;
 
-    "FullPaymentReleased(uint256)": TypedContractEvent<
+    "EscrowCompleted()": TypedContractEvent<
+      EscrowCompletedEvent.InputTuple,
+      EscrowCompletedEvent.OutputTuple,
+      EscrowCompletedEvent.OutputObject
+    >;
+    EscrowCompleted: TypedContractEvent<
+      EscrowCompletedEvent.InputTuple,
+      EscrowCompletedEvent.OutputTuple,
+      EscrowCompletedEvent.OutputObject
+    >;
+
+    "FullPaymentReleased(address,uint256)": TypedContractEvent<
       FullPaymentReleasedEvent.InputTuple,
       FullPaymentReleasedEvent.OutputTuple,
       FullPaymentReleasedEvent.OutputObject
@@ -383,7 +457,18 @@ export interface JobEscrow extends BaseContract {
       FundedEvent.OutputObject
     >;
 
-    "RefundIssued(uint256)": TypedContractEvent<
+    "PartialPaymentReleased(address,uint256)": TypedContractEvent<
+      PartialPaymentReleasedEvent.InputTuple,
+      PartialPaymentReleasedEvent.OutputTuple,
+      PartialPaymentReleasedEvent.OutputObject
+    >;
+    PartialPaymentReleased: TypedContractEvent<
+      PartialPaymentReleasedEvent.InputTuple,
+      PartialPaymentReleasedEvent.OutputTuple,
+      PartialPaymentReleasedEvent.OutputObject
+    >;
+
+    "RefundIssued(address,uint256)": TypedContractEvent<
       RefundIssuedEvent.InputTuple,
       RefundIssuedEvent.OutputTuple,
       RefundIssuedEvent.OutputObject

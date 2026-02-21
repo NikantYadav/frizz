@@ -26,24 +26,20 @@ import type {
 export interface JobEscrowInterface extends Interface {
   getFunction(
     nameOrSignature:
-      | "addMilestone"
+      | "USDC_ADDRESS"
       | "client"
-      | "fund"
       | "fundFromMarketplace"
-      | "getMilestone"
-      | "getMilestoneCount"
       | "isDisputed"
       | "lockedAmount"
       | "marketplace"
-      | "milestones"
       | "payWorker"
       | "raiseDispute"
       | "refundClient"
       | "releaseFullPayment"
-      | "releaseMilestonePayment"
       | "releasedAmount"
       | "setWorker"
       | "totalBudget"
+      | "usdc"
       | "worker"
   ): FunctionFragment;
 
@@ -52,27 +48,16 @@ export interface JobEscrowInterface extends Interface {
       | "DisputeRaised"
       | "FullPaymentReleased"
       | "Funded"
-      | "MilestoneAdded"
-      | "MilestonePaid"
       | "RefundIssued"
   ): EventFragment;
 
   encodeFunctionData(
-    functionFragment: "addMilestone",
-    values: [string, BigNumberish]
-  ): string;
-  encodeFunctionData(functionFragment: "client", values?: undefined): string;
-  encodeFunctionData(functionFragment: "fund", values?: undefined): string;
-  encodeFunctionData(
-    functionFragment: "fundFromMarketplace",
+    functionFragment: "USDC_ADDRESS",
     values?: undefined
   ): string;
+  encodeFunctionData(functionFragment: "client", values?: undefined): string;
   encodeFunctionData(
-    functionFragment: "getMilestone",
-    values: [BigNumberish]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "getMilestoneCount",
+    functionFragment: "fundFromMarketplace",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -86,10 +71,6 @@ export interface JobEscrowInterface extends Interface {
   encodeFunctionData(
     functionFragment: "marketplace",
     values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "milestones",
-    values: [BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "payWorker",
@@ -108,10 +89,6 @@ export interface JobEscrowInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
-    functionFragment: "releaseMilestonePayment",
-    values: [BigNumberish]
-  ): string;
-  encodeFunctionData(
     functionFragment: "releasedAmount",
     values?: undefined
   ): string;
@@ -123,24 +100,16 @@ export interface JobEscrowInterface extends Interface {
     functionFragment: "totalBudget",
     values?: undefined
   ): string;
+  encodeFunctionData(functionFragment: "usdc", values?: undefined): string;
   encodeFunctionData(functionFragment: "worker", values?: undefined): string;
 
   decodeFunctionResult(
-    functionFragment: "addMilestone",
+    functionFragment: "USDC_ADDRESS",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "client", data: BytesLike): Result;
-  decodeFunctionResult(functionFragment: "fund", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "fundFromMarketplace",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "getMilestone",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "getMilestoneCount",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "isDisputed", data: BytesLike): Result;
@@ -152,7 +121,6 @@ export interface JobEscrowInterface extends Interface {
     functionFragment: "marketplace",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(functionFragment: "milestones", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "payWorker", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "raiseDispute",
@@ -167,10 +135,6 @@ export interface JobEscrowInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "releaseMilestonePayment",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
     functionFragment: "releasedAmount",
     data: BytesLike
   ): Result;
@@ -179,6 +143,7 @@ export interface JobEscrowInterface extends Interface {
     functionFragment: "totalBudget",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "usdc", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "worker", data: BytesLike): Result;
 }
 
@@ -208,32 +173,6 @@ export namespace FundedEvent {
   export type InputTuple = [amount: BigNumberish];
   export type OutputTuple = [amount: bigint];
   export interface OutputObject {
-    amount: bigint;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
-
-export namespace MilestoneAddedEvent {
-  export type InputTuple = [milestoneId: BigNumberish, amount: BigNumberish];
-  export type OutputTuple = [milestoneId: bigint, amount: bigint];
-  export interface OutputObject {
-    milestoneId: bigint;
-    amount: bigint;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
-
-export namespace MilestonePaidEvent {
-  export type InputTuple = [milestoneId: BigNumberish, amount: BigNumberish];
-  export type OutputTuple = [milestoneId: bigint, amount: bigint];
-  export interface OutputObject {
-    milestoneId: bigint;
     amount: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
@@ -297,51 +236,17 @@ export interface JobEscrow extends BaseContract {
     event?: TCEvent
   ): Promise<this>;
 
-  addMilestone: TypedContractMethod<
-    [_description: string, _amount: BigNumberish],
-    [void],
-    "nonpayable"
-  >;
+  USDC_ADDRESS: TypedContractMethod<[], [string], "view">;
 
   client: TypedContractMethod<[], [string], "view">;
 
-  fund: TypedContractMethod<[], [void], "payable">;
-
-  fundFromMarketplace: TypedContractMethod<[], [void], "payable">;
-
-  getMilestone: TypedContractMethod<
-    [_milestoneId: BigNumberish],
-    [
-      [string, bigint, boolean, boolean] & {
-        description: string;
-        amount: bigint;
-        isCompleted: boolean;
-        isPaid: boolean;
-      }
-    ],
-    "view"
-  >;
-
-  getMilestoneCount: TypedContractMethod<[], [bigint], "view">;
+  fundFromMarketplace: TypedContractMethod<[], [void], "nonpayable">;
 
   isDisputed: TypedContractMethod<[], [boolean], "view">;
 
   lockedAmount: TypedContractMethod<[], [bigint], "view">;
 
   marketplace: TypedContractMethod<[], [string], "view">;
-
-  milestones: TypedContractMethod<
-    [arg0: BigNumberish],
-    [
-      [string, bigint, boolean, boolean] & {
-        description: string;
-        amount: bigint;
-        isCompleted: boolean;
-        isPaid: boolean;
-      }
-    ],
-    "view"
-  >;
 
   payWorker: TypedContractMethod<[_amount: BigNumberish], [void], "nonpayable">;
 
@@ -355,17 +260,13 @@ export interface JobEscrow extends BaseContract {
 
   releaseFullPayment: TypedContractMethod<[], [void], "nonpayable">;
 
-  releaseMilestonePayment: TypedContractMethod<
-    [_milestoneId: BigNumberish],
-    [void],
-    "nonpayable"
-  >;
-
   releasedAmount: TypedContractMethod<[], [bigint], "view">;
 
   setWorker: TypedContractMethod<[_worker: AddressLike], [void], "nonpayable">;
 
   totalBudget: TypedContractMethod<[], [bigint], "view">;
+
+  usdc: TypedContractMethod<[], [string], "view">;
 
   worker: TypedContractMethod<[], [string], "view">;
 
@@ -374,38 +275,14 @@ export interface JobEscrow extends BaseContract {
   ): T;
 
   getFunction(
-    nameOrSignature: "addMilestone"
-  ): TypedContractMethod<
-    [_description: string, _amount: BigNumberish],
-    [void],
-    "nonpayable"
-  >;
+    nameOrSignature: "USDC_ADDRESS"
+  ): TypedContractMethod<[], [string], "view">;
   getFunction(
     nameOrSignature: "client"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
-    nameOrSignature: "fund"
-  ): TypedContractMethod<[], [void], "payable">;
-  getFunction(
     nameOrSignature: "fundFromMarketplace"
-  ): TypedContractMethod<[], [void], "payable">;
-  getFunction(
-    nameOrSignature: "getMilestone"
-  ): TypedContractMethod<
-    [_milestoneId: BigNumberish],
-    [
-      [string, bigint, boolean, boolean] & {
-        description: string;
-        amount: bigint;
-        isCompleted: boolean;
-        isPaid: boolean;
-      }
-    ],
-    "view"
-  >;
-  getFunction(
-    nameOrSignature: "getMilestoneCount"
-  ): TypedContractMethod<[], [bigint], "view">;
+  ): TypedContractMethod<[], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "isDisputed"
   ): TypedContractMethod<[], [boolean], "view">;
@@ -415,20 +292,6 @@ export interface JobEscrow extends BaseContract {
   getFunction(
     nameOrSignature: "marketplace"
   ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "milestones"
-  ): TypedContractMethod<
-    [arg0: BigNumberish],
-    [
-      [string, bigint, boolean, boolean] & {
-        description: string;
-        amount: bigint;
-        isCompleted: boolean;
-        isPaid: boolean;
-      }
-    ],
-    "view"
-  >;
   getFunction(
     nameOrSignature: "payWorker"
   ): TypedContractMethod<[_amount: BigNumberish], [void], "nonpayable">;
@@ -442,9 +305,6 @@ export interface JobEscrow extends BaseContract {
     nameOrSignature: "releaseFullPayment"
   ): TypedContractMethod<[], [void], "nonpayable">;
   getFunction(
-    nameOrSignature: "releaseMilestonePayment"
-  ): TypedContractMethod<[_milestoneId: BigNumberish], [void], "nonpayable">;
-  getFunction(
     nameOrSignature: "releasedAmount"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
@@ -453,6 +313,9 @@ export interface JobEscrow extends BaseContract {
   getFunction(
     nameOrSignature: "totalBudget"
   ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "usdc"
+  ): TypedContractMethod<[], [string], "view">;
   getFunction(
     nameOrSignature: "worker"
   ): TypedContractMethod<[], [string], "view">;
@@ -477,20 +340,6 @@ export interface JobEscrow extends BaseContract {
     FundedEvent.InputTuple,
     FundedEvent.OutputTuple,
     FundedEvent.OutputObject
-  >;
-  getEvent(
-    key: "MilestoneAdded"
-  ): TypedContractEvent<
-    MilestoneAddedEvent.InputTuple,
-    MilestoneAddedEvent.OutputTuple,
-    MilestoneAddedEvent.OutputObject
-  >;
-  getEvent(
-    key: "MilestonePaid"
-  ): TypedContractEvent<
-    MilestonePaidEvent.InputTuple,
-    MilestonePaidEvent.OutputTuple,
-    MilestonePaidEvent.OutputObject
   >;
   getEvent(
     key: "RefundIssued"
@@ -532,28 +381,6 @@ export interface JobEscrow extends BaseContract {
       FundedEvent.InputTuple,
       FundedEvent.OutputTuple,
       FundedEvent.OutputObject
-    >;
-
-    "MilestoneAdded(uint256,uint256)": TypedContractEvent<
-      MilestoneAddedEvent.InputTuple,
-      MilestoneAddedEvent.OutputTuple,
-      MilestoneAddedEvent.OutputObject
-    >;
-    MilestoneAdded: TypedContractEvent<
-      MilestoneAddedEvent.InputTuple,
-      MilestoneAddedEvent.OutputTuple,
-      MilestoneAddedEvent.OutputObject
-    >;
-
-    "MilestonePaid(uint256,uint256)": TypedContractEvent<
-      MilestonePaidEvent.InputTuple,
-      MilestonePaidEvent.OutputTuple,
-      MilestonePaidEvent.OutputObject
-    >;
-    MilestonePaid: TypedContractEvent<
-      MilestonePaidEvent.InputTuple,
-      MilestonePaidEvent.OutputTuple,
-      MilestonePaidEvent.OutputObject
     >;
 
     "RefundIssued(uint256)": TypedContractEvent<

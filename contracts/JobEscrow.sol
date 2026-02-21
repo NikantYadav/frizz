@@ -2,13 +2,17 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title JobEscrow
- * @dev Handles escrow for individual jobs with milestone support
+ * @dev Handles escrow for individual jobs using USDC
  * Uses factory pattern - one escrow per job
  */
 contract JobEscrow is ReentrancyGuard {
+    IERC20 public immutable usdc;
+    address public constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    
     address public immutable client;
     address public worker;
     address public marketplace;
@@ -17,18 +21,7 @@ contract JobEscrow is ReentrancyGuard {
     uint256 public releasedAmount;
     bool public isDisputed;
     
-    struct Milestone {
-        string description;
-        uint256 amount;
-        bool isCompleted;
-        bool isPaid;
-    }
-    
-    Milestone[] public milestones;
-    
     event Funded(uint256 amount);
-    event MilestoneAdded(uint256 indexed milestoneId, uint256 amount);
-    event MilestonePaid(uint256 indexed milestoneId, uint256 amount);
     event FullPaymentReleased(uint256 amount);
     event RefundIssued(uint256 amount);
     event DisputeRaised();
@@ -52,28 +45,18 @@ contract JobEscrow is ReentrancyGuard {
         client = _client;
         marketplace = msg.sender;
         totalBudget = _budget;
-    }
-    
-    /**
-     * @dev Fund the escrow with ETH
-     */
-    function fund() external payable onlyClient {
-        require(msg.value == totalBudget, "Must match budget");
-        require(lockedAmount == 0, "Already funded");
-        
-        lockedAmount = msg.value;
-        emit Funded(msg.value);
+        usdc = IERC20(USDC_ADDRESS);
     }
     
     /**
      * @dev Fund the escrow from marketplace (called during creation)
+     * Marketplace transfers USDC before calling this
      */
-    function fundFromMarketplace() external payable onlyMarketplace {
-        require(msg.value == totalBudget, "Must match budget");
+    function fundFromMarketplace() external onlyMarketplace {
         require(lockedAmount == 0, "Already funded");
         
-        lockedAmount = msg.value;
-        emit Funded(msg.value);
+        lockedAmount = totalBudget;
+        emit Funded(totalBudget);
     }
     
     /**
@@ -82,55 +65,6 @@ contract JobEscrow is ReentrancyGuard {
     function setWorker(address _worker) external onlyMarketplace {
         require(worker == address(0), "Worker already set");
         worker = _worker;
-    }
-    
-    /**
-     * @dev Add a milestone
-     */
-    function addMilestone(string memory _description, uint256 _amount) external onlyClient {
-        uint256 totalMilestoneAmount = _amount;
-        for (uint256 i = 0; i < milestones.length; i++) {
-            totalMilestoneAmount += milestones[i].amount;
-        }
-        require(totalMilestoneAmount <= totalBudget, "Exceeds budget");
-        
-        milestones.push(Milestone({
-            description: _description,
-            amount: _amount,
-            isCompleted: false,
-            isPaid: false
-        }));
-        
-        emit MilestoneAdded(milestones.length - 1, _amount);
-    }
-    
-    /**
-     * @dev Release payment for a specific milestone
-     * Uses checks-effects-interactions pattern
-     */
-    function releaseMilestonePayment(uint256 _milestoneId) 
-        external 
-        onlyClient 
-        notDisputed 
-        nonReentrant 
-    {
-        require(_milestoneId < milestones.length, "Invalid milestone");
-        Milestone storage milestone = milestones[_milestoneId];
-        require(!milestone.isPaid, "Already paid");
-        require(lockedAmount >= milestone.amount, "Insufficient funds");
-        require(worker != address(0), "No worker selected");
-        
-        // Effects
-        milestone.isCompleted = true;
-        milestone.isPaid = true;
-        lockedAmount -= milestone.amount;
-        releasedAmount += milestone.amount;
-        
-        // Interactions
-        (bool success, ) = payable(worker).call{value: milestone.amount}("");
-        require(success, "Transfer failed");
-        
-        emit MilestonePaid(_milestoneId, milestone.amount);
     }
     
     /**
@@ -151,9 +85,11 @@ contract JobEscrow is ReentrancyGuard {
         lockedAmount = 0;
         releasedAmount += amount;
         
-        // Interactions
-        (bool success, ) = payable(worker).call{value: amount}("");
-        require(success, "Transfer failed");
+        // Interactions - transfer USDC
+        require(
+            usdc.transfer(worker, amount),
+            "USDC transfer failed"
+        );
         
         emit FullPaymentReleased(amount);
     }
@@ -171,9 +107,11 @@ contract JobEscrow is ReentrancyGuard {
         // Effects
         lockedAmount -= _amount;
         
-        // Interactions
-        (bool success, ) = payable(client).call{value: _amount}("");
-        require(success, "Refund failed");
+        // Interactions - transfer USDC
+        require(
+            usdc.transfer(client, _amount),
+            "USDC refund failed"
+        );
         
         emit RefundIssued(_amount);
     }
@@ -193,9 +131,11 @@ contract JobEscrow is ReentrancyGuard {
         lockedAmount -= _amount;
         releasedAmount += _amount;
         
-        // Interactions
-        (bool success, ) = payable(worker).call{value: _amount}("");
-        require(success, "Payment failed");
+        // Interactions - transfer USDC
+        require(
+            usdc.transfer(worker, _amount),
+            "USDC payment failed"
+        );
     }
     
     /**
@@ -204,25 +144,5 @@ contract JobEscrow is ReentrancyGuard {
     function raiseDispute() external onlyMarketplace {
         isDisputed = true;
         emit DisputeRaised();
-    }
-    
-    /**
-     * @dev Get milestone count
-     */
-    function getMilestoneCount() external view returns (uint256) {
-        return milestones.length;
-    }
-    
-    /**
-     * @dev Get milestone details
-     */
-    function getMilestone(uint256 _milestoneId) 
-        external 
-        view 
-        returns (string memory description, uint256 amount, bool isCompleted, bool isPaid) 
-    {
-        require(_milestoneId < milestones.length, "Invalid milestone");
-        Milestone memory m = milestones[_milestoneId];
-        return (m.description, m.amount, m.isCompleted, m.isPaid);
     }
 }

@@ -25,55 +25,93 @@ import type {
 
 export declare namespace WorkerRegistry {
   export type ProfileStruct = {
-    ipfsHash: string;
+    ipfsHash: BytesLike;
     hourlyRate: BigNumberish;
-    skills: string[];
-    isAvailable: boolean;
     registeredAt: BigNumberish;
+    isActive: boolean;
   };
 
   export type ProfileStructOutput = [
     ipfsHash: string,
     hourlyRate: bigint,
-    skills: string[],
-    isAvailable: boolean,
-    registeredAt: bigint
+    registeredAt: bigint,
+    isActive: boolean
   ] & {
     ipfsHash: string;
     hourlyRate: bigint;
-    skills: string[];
-    isAvailable: boolean;
     registeredAt: bigint;
+    isActive: boolean;
   };
 }
 
 export interface WorkerRegistryInterface extends Interface {
   getFunction(
     nameOrSignature:
+      | "DOMAIN_SEPARATOR"
+      | "MIN_HOURLY_RATE"
+      | "REGISTER_TYPEHASH"
+      | "acceptSignerRole"
+      | "activeWorkerCount"
+      | "admin"
       | "allWorkers"
+      | "deregisterProfile"
+      | "getDomainSeparator"
       | "getWorker"
       | "getWorkerCount"
-      | "getWorkersBySkill"
-      | "owner"
+      | "getWorkerInfo"
+      | "getWorkersPaginated"
+      | "isActiveWorker"
+      | "nonces"
+      | "pendingSigner"
       | "profiles"
+      | "proposeSignerUpdate"
       | "registerProfile"
-      | "renounceOwnership"
-      | "setAvailability"
-      | "transferOwnership"
-      | "workersBySkill"
+      | "registrationSigner"
+      | "transferAdmin"
   ): FunctionFragment;
 
   getEvent(
     nameOrSignatureOrTopic:
-      | "AvailabilityUpdated"
-      | "OwnershipTransferred"
+      | "AdminTransferred"
+      | "ProfileDeregistered"
       | "ProfileRegistered"
       | "ProfileUpdated"
+      | "SignerUpdateProposed"
+      | "SignerUpdated"
   ): EventFragment;
 
   encodeFunctionData(
+    functionFragment: "DOMAIN_SEPARATOR",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "MIN_HOURLY_RATE",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "REGISTER_TYPEHASH",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "acceptSignerRole",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "activeWorkerCount",
+    values?: undefined
+  ): string;
+  encodeFunctionData(functionFragment: "admin", values?: undefined): string;
+  encodeFunctionData(
     functionFragment: "allWorkers",
     values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "deregisterProfile",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getDomainSeparator",
+    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "getWorker",
@@ -84,75 +122,120 @@ export interface WorkerRegistryInterface extends Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
-    functionFragment: "getWorkersBySkill",
-    values: [string]
+    functionFragment: "getWorkerInfo",
+    values: [AddressLike]
   ): string;
-  encodeFunctionData(functionFragment: "owner", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "getWorkersPaginated",
+    values: [BigNumberish, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "isActiveWorker",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(functionFragment: "nonces", values: [AddressLike]): string;
+  encodeFunctionData(
+    functionFragment: "pendingSigner",
+    values?: undefined
+  ): string;
   encodeFunctionData(
     functionFragment: "profiles",
     values: [AddressLike]
   ): string;
   encodeFunctionData(
-    functionFragment: "registerProfile",
-    values: [string, BigNumberish, string[]]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "renounceOwnership",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "setAvailability",
-    values: [boolean]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "transferOwnership",
+    functionFragment: "proposeSignerUpdate",
     values: [AddressLike]
   ): string;
   encodeFunctionData(
-    functionFragment: "workersBySkill",
-    values: [string, BigNumberish]
+    functionFragment: "registerProfile",
+    values: [BytesLike, BigNumberish, BigNumberish, BytesLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "registrationSigner",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "transferAdmin",
+    values: [AddressLike]
   ): string;
 
+  decodeFunctionResult(
+    functionFragment: "DOMAIN_SEPARATOR",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "MIN_HOURLY_RATE",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "REGISTER_TYPEHASH",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "acceptSignerRole",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "activeWorkerCount",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "admin", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "allWorkers", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "deregisterProfile",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getDomainSeparator",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "getWorker", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "getWorkerCount",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "getWorkersBySkill",
+    functionFragment: "getWorkerInfo",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "getWorkersPaginated",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "isActiveWorker",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "nonces", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "pendingSigner",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "profiles", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "proposeSignerUpdate",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "registerProfile",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "renounceOwnership",
+    functionFragment: "registrationSigner",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "setAvailability",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "transferOwnership",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "workersBySkill",
+    functionFragment: "transferAdmin",
     data: BytesLike
   ): Result;
 }
 
-export namespace AvailabilityUpdatedEvent {
-  export type InputTuple = [worker: AddressLike, isAvailable: boolean];
-  export type OutputTuple = [worker: string, isAvailable: boolean];
+export namespace AdminTransferredEvent {
+  export type InputTuple = [oldAdmin: AddressLike, newAdmin: AddressLike];
+  export type OutputTuple = [oldAdmin: string, newAdmin: string];
   export interface OutputObject {
-    worker: string;
-    isAvailable: boolean;
+    oldAdmin: string;
+    newAdmin: string;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -160,12 +243,11 @@ export namespace AvailabilityUpdatedEvent {
   export type LogDescription = TypedLogDescription<Event>;
 }
 
-export namespace OwnershipTransferredEvent {
-  export type InputTuple = [previousOwner: AddressLike, newOwner: AddressLike];
-  export type OutputTuple = [previousOwner: string, newOwner: string];
+export namespace ProfileDeregisteredEvent {
+  export type InputTuple = [worker: AddressLike];
+  export type OutputTuple = [worker: string];
   export interface OutputObject {
-    previousOwner: string;
-    newOwner: string;
+    worker: string;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -176,7 +258,7 @@ export namespace OwnershipTransferredEvent {
 export namespace ProfileRegisteredEvent {
   export type InputTuple = [
     worker: AddressLike,
-    ipfsHash: string,
+    ipfsHash: BytesLike,
     hourlyRate: BigNumberish
   ];
   export type OutputTuple = [
@@ -198,7 +280,7 @@ export namespace ProfileRegisteredEvent {
 export namespace ProfileUpdatedEvent {
   export type InputTuple = [
     worker: AddressLike,
-    ipfsHash: string,
+    ipfsHash: BytesLike,
     hourlyRate: BigNumberish
   ];
   export type OutputTuple = [
@@ -210,6 +292,35 @@ export namespace ProfileUpdatedEvent {
     worker: string;
     ipfsHash: string;
     hourlyRate: bigint;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace SignerUpdateProposedEvent {
+  export type InputTuple = [
+    currentSigner: AddressLike,
+    proposedSigner: AddressLike
+  ];
+  export type OutputTuple = [currentSigner: string, proposedSigner: string];
+  export interface OutputObject {
+    currentSigner: string;
+    proposedSigner: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
+}
+
+export namespace SignerUpdatedEvent {
+  export type InputTuple = [oldSigner: AddressLike, newSigner: AddressLike];
+  export type OutputTuple = [oldSigner: string, newSigner: string];
+  export interface OutputObject {
+    oldSigner: string;
+    newSigner: string;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -260,7 +371,23 @@ export interface WorkerRegistry extends BaseContract {
     event?: TCEvent
   ): Promise<this>;
 
+  DOMAIN_SEPARATOR: TypedContractMethod<[], [string], "view">;
+
+  MIN_HOURLY_RATE: TypedContractMethod<[], [bigint], "view">;
+
+  REGISTER_TYPEHASH: TypedContractMethod<[], [string], "view">;
+
+  acceptSignerRole: TypedContractMethod<[], [void], "nonpayable">;
+
+  activeWorkerCount: TypedContractMethod<[], [bigint], "view">;
+
+  admin: TypedContractMethod<[], [string], "view">;
+
   allWorkers: TypedContractMethod<[arg0: BigNumberish], [string], "view">;
+
+  deregisterProfile: TypedContractMethod<[], [void], "nonpayable">;
+
+  getDomainSeparator: TypedContractMethod<[], [string], "view">;
 
   getWorker: TypedContractMethod<
     [_worker: AddressLike],
@@ -270,47 +397,71 @@ export interface WorkerRegistry extends BaseContract {
 
   getWorkerCount: TypedContractMethod<[], [bigint], "view">;
 
-  getWorkersBySkill: TypedContractMethod<[_skill: string], [string[]], "view">;
-
-  owner: TypedContractMethod<[], [string], "view">;
-
-  profiles: TypedContractMethod<
-    [arg0: AddressLike],
+  getWorkerInfo: TypedContractMethod<
+    [_worker: AddressLike],
     [
       [string, bigint, boolean, bigint] & {
         ipfsHash: string;
         hourlyRate: bigint;
-        isAvailable: boolean;
+        isActive: boolean;
         registeredAt: bigint;
       }
     ],
     "view"
   >;
 
-  registerProfile: TypedContractMethod<
-    [_ipfsHash: string, _hourlyRate: BigNumberish, _skills: string[]],
-    [void],
-    "nonpayable"
-  >;
-
-  renounceOwnership: TypedContractMethod<[], [void], "nonpayable">;
-
-  setAvailability: TypedContractMethod<
-    [_isAvailable: boolean],
-    [void],
-    "nonpayable"
-  >;
-
-  transferOwnership: TypedContractMethod<
-    [newOwner: AddressLike],
-    [void],
-    "nonpayable"
-  >;
-
-  workersBySkill: TypedContractMethod<
-    [arg0: string, arg1: BigNumberish],
-    [string],
+  getWorkersPaginated: TypedContractMethod<
+    [_offset: BigNumberish, _limit: BigNumberish],
+    [string[]],
     "view"
+  >;
+
+  isActiveWorker: TypedContractMethod<
+    [_worker: AddressLike],
+    [boolean],
+    "view"
+  >;
+
+  nonces: TypedContractMethod<[arg0: AddressLike], [bigint], "view">;
+
+  pendingSigner: TypedContractMethod<[], [string], "view">;
+
+  profiles: TypedContractMethod<
+    [arg0: AddressLike],
+    [
+      [string, bigint, bigint, boolean] & {
+        ipfsHash: string;
+        hourlyRate: bigint;
+        registeredAt: bigint;
+        isActive: boolean;
+      }
+    ],
+    "view"
+  >;
+
+  proposeSignerUpdate: TypedContractMethod<
+    [_newSigner: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+
+  registerProfile: TypedContractMethod<
+    [
+      _ipfsHash: BytesLike,
+      _hourlyRate: BigNumberish,
+      _deadline: BigNumberish,
+      _signature: BytesLike
+    ],
+    [void],
+    "nonpayable"
+  >;
+
+  registrationSigner: TypedContractMethod<[], [string], "view">;
+
+  transferAdmin: TypedContractMethod<
+    [_newAdmin: AddressLike],
+    [void],
+    "nonpayable"
   >;
 
   getFunction<T extends ContractMethod = ContractMethod>(
@@ -318,8 +469,32 @@ export interface WorkerRegistry extends BaseContract {
   ): T;
 
   getFunction(
+    nameOrSignature: "DOMAIN_SEPARATOR"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "MIN_HOURLY_RATE"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "REGISTER_TYPEHASH"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "acceptSignerRole"
+  ): TypedContractMethod<[], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "activeWorkerCount"
+  ): TypedContractMethod<[], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "admin"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
     nameOrSignature: "allWorkers"
   ): TypedContractMethod<[arg0: BigNumberish], [string], "view">;
+  getFunction(
+    nameOrSignature: "deregisterProfile"
+  ): TypedContractMethod<[], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "getDomainSeparator"
+  ): TypedContractMethod<[], [string], "view">;
   getFunction(
     nameOrSignature: "getWorker"
   ): TypedContractMethod<
@@ -331,58 +506,84 @@ export interface WorkerRegistry extends BaseContract {
     nameOrSignature: "getWorkerCount"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
-    nameOrSignature: "getWorkersBySkill"
-  ): TypedContractMethod<[_skill: string], [string[]], "view">;
-  getFunction(
-    nameOrSignature: "owner"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "profiles"
+    nameOrSignature: "getWorkerInfo"
   ): TypedContractMethod<
-    [arg0: AddressLike],
+    [_worker: AddressLike],
     [
       [string, bigint, boolean, bigint] & {
         ipfsHash: string;
         hourlyRate: bigint;
-        isAvailable: boolean;
+        isActive: boolean;
         registeredAt: bigint;
       }
     ],
     "view"
   >;
   getFunction(
+    nameOrSignature: "getWorkersPaginated"
+  ): TypedContractMethod<
+    [_offset: BigNumberish, _limit: BigNumberish],
+    [string[]],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "isActiveWorker"
+  ): TypedContractMethod<[_worker: AddressLike], [boolean], "view">;
+  getFunction(
+    nameOrSignature: "nonces"
+  ): TypedContractMethod<[arg0: AddressLike], [bigint], "view">;
+  getFunction(
+    nameOrSignature: "pendingSigner"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "profiles"
+  ): TypedContractMethod<
+    [arg0: AddressLike],
+    [
+      [string, bigint, bigint, boolean] & {
+        ipfsHash: string;
+        hourlyRate: bigint;
+        registeredAt: bigint;
+        isActive: boolean;
+      }
+    ],
+    "view"
+  >;
+  getFunction(
+    nameOrSignature: "proposeSignerUpdate"
+  ): TypedContractMethod<[_newSigner: AddressLike], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "registerProfile"
   ): TypedContractMethod<
-    [_ipfsHash: string, _hourlyRate: BigNumberish, _skills: string[]],
+    [
+      _ipfsHash: BytesLike,
+      _hourlyRate: BigNumberish,
+      _deadline: BigNumberish,
+      _signature: BytesLike
+    ],
     [void],
     "nonpayable"
   >;
   getFunction(
-    nameOrSignature: "renounceOwnership"
-  ): TypedContractMethod<[], [void], "nonpayable">;
+    nameOrSignature: "registrationSigner"
+  ): TypedContractMethod<[], [string], "view">;
   getFunction(
-    nameOrSignature: "setAvailability"
-  ): TypedContractMethod<[_isAvailable: boolean], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "transferOwnership"
-  ): TypedContractMethod<[newOwner: AddressLike], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "workersBySkill"
-  ): TypedContractMethod<[arg0: string, arg1: BigNumberish], [string], "view">;
+    nameOrSignature: "transferAdmin"
+  ): TypedContractMethod<[_newAdmin: AddressLike], [void], "nonpayable">;
 
   getEvent(
-    key: "AvailabilityUpdated"
+    key: "AdminTransferred"
   ): TypedContractEvent<
-    AvailabilityUpdatedEvent.InputTuple,
-    AvailabilityUpdatedEvent.OutputTuple,
-    AvailabilityUpdatedEvent.OutputObject
+    AdminTransferredEvent.InputTuple,
+    AdminTransferredEvent.OutputTuple,
+    AdminTransferredEvent.OutputObject
   >;
   getEvent(
-    key: "OwnershipTransferred"
+    key: "ProfileDeregistered"
   ): TypedContractEvent<
-    OwnershipTransferredEvent.InputTuple,
-    OwnershipTransferredEvent.OutputTuple,
-    OwnershipTransferredEvent.OutputObject
+    ProfileDeregisteredEvent.InputTuple,
+    ProfileDeregisteredEvent.OutputTuple,
+    ProfileDeregisteredEvent.OutputObject
   >;
   getEvent(
     key: "ProfileRegistered"
@@ -398,31 +599,45 @@ export interface WorkerRegistry extends BaseContract {
     ProfileUpdatedEvent.OutputTuple,
     ProfileUpdatedEvent.OutputObject
   >;
+  getEvent(
+    key: "SignerUpdateProposed"
+  ): TypedContractEvent<
+    SignerUpdateProposedEvent.InputTuple,
+    SignerUpdateProposedEvent.OutputTuple,
+    SignerUpdateProposedEvent.OutputObject
+  >;
+  getEvent(
+    key: "SignerUpdated"
+  ): TypedContractEvent<
+    SignerUpdatedEvent.InputTuple,
+    SignerUpdatedEvent.OutputTuple,
+    SignerUpdatedEvent.OutputObject
+  >;
 
   filters: {
-    "AvailabilityUpdated(address,bool)": TypedContractEvent<
-      AvailabilityUpdatedEvent.InputTuple,
-      AvailabilityUpdatedEvent.OutputTuple,
-      AvailabilityUpdatedEvent.OutputObject
+    "AdminTransferred(address,address)": TypedContractEvent<
+      AdminTransferredEvent.InputTuple,
+      AdminTransferredEvent.OutputTuple,
+      AdminTransferredEvent.OutputObject
     >;
-    AvailabilityUpdated: TypedContractEvent<
-      AvailabilityUpdatedEvent.InputTuple,
-      AvailabilityUpdatedEvent.OutputTuple,
-      AvailabilityUpdatedEvent.OutputObject
-    >;
-
-    "OwnershipTransferred(address,address)": TypedContractEvent<
-      OwnershipTransferredEvent.InputTuple,
-      OwnershipTransferredEvent.OutputTuple,
-      OwnershipTransferredEvent.OutputObject
-    >;
-    OwnershipTransferred: TypedContractEvent<
-      OwnershipTransferredEvent.InputTuple,
-      OwnershipTransferredEvent.OutputTuple,
-      OwnershipTransferredEvent.OutputObject
+    AdminTransferred: TypedContractEvent<
+      AdminTransferredEvent.InputTuple,
+      AdminTransferredEvent.OutputTuple,
+      AdminTransferredEvent.OutputObject
     >;
 
-    "ProfileRegistered(address,string,uint256)": TypedContractEvent<
+    "ProfileDeregistered(address)": TypedContractEvent<
+      ProfileDeregisteredEvent.InputTuple,
+      ProfileDeregisteredEvent.OutputTuple,
+      ProfileDeregisteredEvent.OutputObject
+    >;
+    ProfileDeregistered: TypedContractEvent<
+      ProfileDeregisteredEvent.InputTuple,
+      ProfileDeregisteredEvent.OutputTuple,
+      ProfileDeregisteredEvent.OutputObject
+    >;
+
+    "ProfileRegistered(address,bytes32,uint256)": TypedContractEvent<
       ProfileRegisteredEvent.InputTuple,
       ProfileRegisteredEvent.OutputTuple,
       ProfileRegisteredEvent.OutputObject
@@ -433,7 +648,7 @@ export interface WorkerRegistry extends BaseContract {
       ProfileRegisteredEvent.OutputObject
     >;
 
-    "ProfileUpdated(address,string,uint256)": TypedContractEvent<
+    "ProfileUpdated(address,bytes32,uint256)": TypedContractEvent<
       ProfileUpdatedEvent.InputTuple,
       ProfileUpdatedEvent.OutputTuple,
       ProfileUpdatedEvent.OutputObject
@@ -442,6 +657,28 @@ export interface WorkerRegistry extends BaseContract {
       ProfileUpdatedEvent.InputTuple,
       ProfileUpdatedEvent.OutputTuple,
       ProfileUpdatedEvent.OutputObject
+    >;
+
+    "SignerUpdateProposed(address,address)": TypedContractEvent<
+      SignerUpdateProposedEvent.InputTuple,
+      SignerUpdateProposedEvent.OutputTuple,
+      SignerUpdateProposedEvent.OutputObject
+    >;
+    SignerUpdateProposed: TypedContractEvent<
+      SignerUpdateProposedEvent.InputTuple,
+      SignerUpdateProposedEvent.OutputTuple,
+      SignerUpdateProposedEvent.OutputObject
+    >;
+
+    "SignerUpdated(address,address)": TypedContractEvent<
+      SignerUpdatedEvent.InputTuple,
+      SignerUpdatedEvent.OutputTuple,
+      SignerUpdatedEvent.OutputObject
+    >;
+    SignerUpdated: TypedContractEvent<
+      SignerUpdatedEvent.InputTuple,
+      SignerUpdatedEvent.OutputTuple,
+      SignerUpdatedEvent.OutputObject
     >;
   };
 }

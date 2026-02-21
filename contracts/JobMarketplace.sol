@@ -8,12 +8,12 @@ import "./JobEscrow.sol";
 import "./Arbitration.sol";
 import "./ReputationSystem.sol";
 import "./WorkerRegistry.sol";
-import "./Negotiation.sol";
 
 /**
  * @title JobMarketplace
  * @dev Main contract handling job creation, applications, worker selection, and dispute management
  * Integrates with JobEscrow and Arbitration contracts
+ * Note: Negotiation is handled off-chain
  */
 contract JobMarketplace is ReentrancyGuard, Ownable {
     Arbitration public immutable arbitration;
@@ -21,7 +21,6 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     address public constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     ReputationSystem public immutable reputationSystem;
     WorkerRegistry public immutable workerRegistry;
-    Negotiation public immutable negotiation;
 
     struct Job {
         uint256 jobId;
@@ -90,14 +89,12 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     constructor(
         address _arbitration,
         address _reputationSystem,
-        address _workerRegistry,
-        address _negotiation
+        address _workerRegistry
     ) Ownable(msg.sender) {
         arbitration = Arbitration(_arbitration);
         usdc = IERC20(USDC_ADDRESS);
         reputationSystem = ReputationSystem(_reputationSystem);
         workerRegistry = WorkerRegistry(_workerRegistry);
-        negotiation = Negotiation(_negotiation);
     }
 
     /**
@@ -140,67 +137,6 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Create job from negotiation
-     */
-    function createJobFromNegotiation(
-        uint256 _negotiationId,
-        uint256 _categoryId
-    ) external payable nonReentrant returns (uint256) {
-        Negotiation.Offer memory offer = negotiation.getOffer(_negotiationId);
-        require(
-            offer.status == Negotiation.OfferStatus.ACCEPTED,
-            "Negotiation not accepted"
-        );
-        require(offer.client == msg.sender, "Only client can create job");
-        require(msg.value == offer.budget, "Must fund budget");
-
-        jobCounter++;
-
-        jobs[jobCounter] = Job({
-            jobId: jobCounter,
-            client: msg.sender,
-            title: offer.title,
-            description: "Created from negotiation", // Could fetch terms hash
-            skills: "",
-            categoryId: _categoryId,
-            budget: offer.budget,
-            isActive: true,
-            isCompleted: false,
-            selectedWorker: offer.worker,
-            escrowContract: address(0), // Will create below
-            workSubmissionHash: "",
-            workSubmitted: false,
-            disputeId: 0,
-            isDisputed: false
-        });
-
-        clientJobs[msg.sender].push(jobCounter);
-        workerJobs[offer.worker].push(jobCounter);
-
-        // Create and fund escrow immediately
-        JobEscrow escrow = new JobEscrow(msg.sender, offer.budget);
-        jobs[jobCounter].escrowContract = address(escrow);
-        escrow.setWorker(offer.worker);
-
-        (bool success, ) = address(escrow).call{value: msg.value}(
-            abi.encodeWithSignature("fundFromMarketplace()")
-        );
-        require(success, "Escrow funding failed");
-
-        emit JobPosted(
-            jobCounter,
-            msg.sender,
-            offer.title,
-            _categoryId,
-            offer.budget
-        );
-        emit WorkerSelected(jobCounter, offer.worker);
-        emit EscrowCreated(jobCounter, address(escrow));
-
-        return jobCounter;
-    }
-
-    /**
      * @dev Apply to a job with IPFS hashes for cover letter and work history
      */
     function applyToJob(
@@ -234,22 +170,30 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
      */
     function createAndFundEscrow(
         uint256 _jobId
-    ) external payable onlyClient(_jobId) nonReentrant {
+    ) external onlyClient(_jobId) nonReentrant {
         require(
             jobs[_jobId].escrowContract == address(0),
             "Escrow already created"
         );
-        require(msg.value == jobs[_jobId].budget, "Must match budget");
+
+        uint256 budget = jobs[_jobId].budget;
+        
+        // Transfer USDC from client to marketplace
+        require(
+            usdc.transferFrom(msg.sender, address(this), budget),
+            "USDC transfer failed"
+        );
 
         // Create new escrow contract
-        JobEscrow escrow = new JobEscrow(msg.sender, jobs[_jobId].budget);
+        JobEscrow escrow = new JobEscrow(msg.sender, budget);
         jobs[_jobId].escrowContract = address(escrow);
 
-        // Fund the escrow by forwarding the ETH
-        (bool success, ) = address(escrow).call{value: msg.value}(
-            abi.encodeWithSignature("fundFromMarketplace()")
+        // Transfer USDC to escrow
+        require(
+            usdc.transfer(address(escrow), budget),
+            "Escrow funding failed"
         );
-        require(success, "Escrow funding failed");
+        escrow.fundFromMarketplace();
 
         emit EscrowCreated(_jobId, address(escrow));
     }
@@ -322,6 +266,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
 
         // Update reputation
         reputationSystem.recordJobCompletion(
+            _jobId,
             jobs[_jobId].selectedWorker,
             jobs[_jobId].client,
             jobs[_jobId].budget
@@ -336,9 +281,12 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         uint8 _rating
     ) external onlyClient(_jobId) {
         require(jobs[_jobId].isCompleted, "Job not completed");
-        // Prevent double rating? ReputationSystem handles additive, but we should restrict 1 per job?
-        // For MVP assuming frontend handles it or ReputationSystem logic evolves.
-        reputationSystem.updateRating(jobs[_jobId].selectedWorker, _rating);
+        reputationSystem.updateRating(
+            _jobId,
+            jobs[_jobId].selectedWorker,
+            msg.sender,
+            _rating
+        );
     }
 
     /**
@@ -349,41 +297,12 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         uint8 _rating
     ) external onlySelectedWorker(_jobId) {
         require(jobs[_jobId].isCompleted, "Job not completed");
-        reputationSystem.updateRating(jobs[_jobId].client, _rating);
-    }
-
-    /**
-     * @dev Add milestone to job escrow
-     */
-    function addMilestone(
-        uint256 _jobId,
-        string memory _description,
-        uint256 _amount
-    ) external onlyClient(_jobId) {
-        require(
-            jobs[_jobId].escrowContract != address(0),
-            "Escrow not created"
+        reputationSystem.updateRating(
+            _jobId,
+            jobs[_jobId].client,
+            msg.sender,
+            _rating
         );
-
-        JobEscrow escrow = JobEscrow(jobs[_jobId].escrowContract);
-        escrow.addMilestone(_description, _amount);
-    }
-
-    /**
-     * @dev Release milestone payment
-     */
-    function releaseMilestonePayment(
-        uint256 _jobId,
-        uint256 _milestoneId
-    ) external onlyClient(_jobId) nonReentrant {
-        require(
-            jobs[_jobId].escrowContract != address(0),
-            "Escrow not created"
-        );
-        require(!jobs[_jobId].isDisputed, "Job is disputed");
-
-        JobEscrow escrow = JobEscrow(jobs[_jobId].escrowContract);
-        escrow.releaseMilestonePayment(_milestoneId);
     }
 
     /**
@@ -460,11 +379,13 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         // Update reputation based on dispute result
         if (clientWon) {
             reputationSystem.recordDisputeResult(
+                job.disputeId,
                 job.client,
                 job.selectedWorker
             );
         } else {
             reputationSystem.recordDisputeResult(
+                job.disputeId,
                 job.selectedWorker,
                 job.client
             );

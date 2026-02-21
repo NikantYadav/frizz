@@ -101,7 +101,6 @@ export interface JobMarketplaceInterface extends Interface {
     nameOrSignature:
       | "USDC_ADDRESS"
       | "acceptWorkAndPay"
-      | "addMilestone"
       | "applyToJob"
       | "arbitration"
       | "clientJobs"
@@ -123,7 +122,6 @@ export interface JobMarketplaceInterface extends Interface {
       | "raiseDispute"
       | "rateClient"
       | "rateWorker"
-      | "releaseMilestonePayment"
       | "renounceOwnership"
       | "reputationSystem"
       | "resolveDispute"
@@ -156,10 +154,6 @@ export interface JobMarketplaceInterface extends Interface {
   encodeFunctionData(
     functionFragment: "acceptWorkAndPay",
     values: [BigNumberish]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "addMilestone",
-    values: [BigNumberish, string, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "applyToJob",
@@ -240,10 +234,6 @@ export interface JobMarketplaceInterface extends Interface {
     values: [BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
-    functionFragment: "releaseMilestonePayment",
-    values: [BigNumberish, BigNumberish]
-  ): string;
-  encodeFunctionData(
     functionFragment: "renounceOwnership",
     values?: undefined
   ): string;
@@ -287,10 +277,6 @@ export interface JobMarketplaceInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "acceptWorkAndPay",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "addMilestone",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "applyToJob", data: BytesLike): Result;
@@ -350,10 +336,6 @@ export interface JobMarketplaceInterface extends Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "rateClient", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "rateWorker", data: BytesLike): Result;
-  decodeFunctionResult(
-    functionFragment: "releaseMilestonePayment",
-    data: BytesLike
-  ): Result;
   decodeFunctionResult(
     functionFragment: "renounceOwnership",
     data: BytesLike
@@ -575,12 +557,6 @@ export interface JobMarketplace extends BaseContract {
     "nonpayable"
   >;
 
-  addMilestone: TypedContractMethod<
-    [_jobId: BigNumberish, _description: string, _amount: BigNumberish],
-    [void],
-    "nonpayable"
-  >;
-
   applyToJob: TypedContractMethod<
     [_jobId: BigNumberish, _coverLetterHash: string, _workHistoryHash: string],
     [void],
@@ -598,13 +574,13 @@ export interface JobMarketplace extends BaseContract {
   createAndFundEscrow: TypedContractMethod<
     [_jobId: BigNumberish],
     [void],
-    "payable"
+    "nonpayable"
   >;
 
   createJobFromNegotiation: TypedContractMethod<
     [_negotiationId: BigNumberish, _categoryId: BigNumberish],
     [bigint],
-    "payable"
+    "nonpayable"
   >;
 
   getActiveJobs: TypedContractMethod<[], [bigint[]], "view">;
@@ -734,12 +710,6 @@ export interface JobMarketplace extends BaseContract {
     "nonpayable"
   >;
 
-  releaseMilestonePayment: TypedContractMethod<
-    [_jobId: BigNumberish, _milestoneId: BigNumberish],
-    [void],
-    "nonpayable"
-  >;
-
   renounceOwnership: TypedContractMethod<[], [void], "nonpayable">;
 
   reputationSystem: TypedContractMethod<[], [string], "view">;
@@ -795,13 +765,6 @@ export interface JobMarketplace extends BaseContract {
     nameOrSignature: "acceptWorkAndPay"
   ): TypedContractMethod<[_jobId: BigNumberish], [void], "nonpayable">;
   getFunction(
-    nameOrSignature: "addMilestone"
-  ): TypedContractMethod<
-    [_jobId: BigNumberish, _description: string, _amount: BigNumberish],
-    [void],
-    "nonpayable"
-  >;
-  getFunction(
     nameOrSignature: "applyToJob"
   ): TypedContractMethod<
     [_jobId: BigNumberish, _coverLetterHash: string, _workHistoryHash: string],
@@ -820,13 +783,13 @@ export interface JobMarketplace extends BaseContract {
   >;
   getFunction(
     nameOrSignature: "createAndFundEscrow"
-  ): TypedContractMethod<[_jobId: BigNumberish], [void], "payable">;
+  ): TypedContractMethod<[_jobId: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "createJobFromNegotiation"
   ): TypedContractMethod<
     [_negotiationId: BigNumberish, _categoryId: BigNumberish],
     [bigint],
-    "payable"
+    "nonpayable"
   >;
   getFunction(
     nameOrSignature: "getActiveJobs"
@@ -948,13 +911,6 @@ export interface JobMarketplace extends BaseContract {
     nameOrSignature: "rateWorker"
   ): TypedContractMethod<
     [_jobId: BigNumberish, _rating: BigNumberish],
-    [void],
-    "nonpayable"
-  >;
-  getFunction(
-    nameOrSignature: "releaseMilestonePayment"
-  ): TypedContractMethod<
-    [_jobId: BigNumberish, _milestoneId: BigNumberish],
     [void],
     "nonpayable"
   >;

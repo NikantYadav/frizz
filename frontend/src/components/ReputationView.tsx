@@ -8,7 +8,7 @@ interface ReputationProps {
     completedJobs: number;
     disputeWins: number;
     disputeLosses: number;
-    totalVolume: string; // ETH
+    totalVolume: string; // USDC
 }
 
 export default function ReputationView({ reputation }: { reputation: ReputationProps }) {
@@ -41,7 +41,7 @@ export default function ReputationView({ reputation }: { reputation: ReputationP
             <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
                 <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Dispute History</span>
-                    <span className="text-xs text-gray-500">Volume: {reputation.totalVolume} ETH</span>
+                    <span className="text-xs text-gray-500">Volume: ${reputation.totalVolume} USDC</span>
                 </div>
                 <div className="flex gap-4">
                     <div className="flex items-center text-green-600 text-sm">

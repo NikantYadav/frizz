@@ -1,7 +1,6 @@
 'use client';
 
 import { X, DollarSign, User, Calendar, Tag } from 'lucide-react';
-import { formatEther } from 'ethers';
 
 interface JobDetailsModalProps {
   job: any;
@@ -26,7 +25,7 @@ export function JobDetailsModal({ job, onClose, activeTab }: JobDetailsModalProp
               </span>
               <span className="flex items-center">
                 <DollarSign className="h-4 w-4 mr-1" />
-                {formatEther(job.budget)} ETH
+                ${(Number(job.budget) / 1e6).toFixed(2)} USDC
               </span>
             </div>
           </div>

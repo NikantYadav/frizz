@@ -203,7 +203,7 @@ Job budget
 
 Milestone amounts
 
-Locked ETH
+Locked USDC
 
 Released amounts
 

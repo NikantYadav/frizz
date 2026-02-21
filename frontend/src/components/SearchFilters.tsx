@@ -65,8 +65,8 @@ export default function SearchFilters({ onFilterChange }: SearchFiltersProps) {
                         className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>0 ETH</span>
-                        <span>{maxRate} ETH</span>
+                        <span>$0</span>
+                        <span>${maxRate} USDC</span>
                     </div>
                 </div>
             </div>

@@ -3,7 +3,6 @@
 
 import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
 import MilestoneList from "@/components/MilestoneList";
 import DisputeResolution from "@/components/DisputeResolution";
 import { CheckCircle, AlertTriangle, ArrowLeft } from "lucide-react";
@@ -58,7 +57,7 @@ export default function ContractDetailPage() {
                             <div className="flex gap-4 text-sm text-gray-500">
                                 <span>Client: {contract.client}</span>
                                 <span>Worker: {contract.worker}</span>
-                                <span>Budget: {contract.budget} ETH</span>
+                                <span>Budget: ${contract.budget} USDC</span>
                             </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
@@ -108,8 +107,6 @@ export default function ContractDetailPage() {
                     </div>
                 </div>
             </main>
-
-            <Footer />
         </div>
     );
 }

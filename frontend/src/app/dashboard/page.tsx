@@ -1,119 +1,80 @@
+'use client';
 
-"use client";
-
-import { useState } from "react";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
-import ContractCard from "@/components/ContractCard";
-import { LayoutDashboard, CheckSquare, AlertCircle } from "lucide-react";
-import { useAccount } from "wagmi";
+import { useState, useEffect } from 'react';
+import { useAccount } from 'wagmi';
+import { useRouter } from 'next/navigation';
+import { Navbar } from '@/components/Navbar';
+import { ClientDashboard, WorkerDashboard } from '@/components/dashboard';
+import { Briefcase, Wrench } from 'lucide-react';
 
 export default function DashboardPage() {
-    const { address } = useAccount();
-    const [activeTab, setActiveTab] = useState<"ACTIVE" | "COMPLETED" | "DISPUTED">("ACTIVE");
+  const { isConnected } = useAccount();
+  const router = useRouter();
+  const [mode, setMode] = useState<'client' | 'worker'>('client');
+  const [mounted, setMounted] = useState(false);
 
-    // Mock data for MVP
-    const contracts = [
-        {
-            id: "1",
-            title: "DeFi Frontend Implementation",
-            client: "0xClient...",
-            worker: "0xWorker...",
-            budget: "5.0",
-            status: "ACTIVE" as const,
-            escrowStatus: "FUNDED" as const,
-            nextMilestone: "UI Components"
-        },
-        {
-            id: "2",
-            title: "Smart Contract Audit",
-            client: "0xClient2...",
-            worker: "0xWorker...",
-            budget: "2.5",
-            status: "COMPLETED" as const,
-            escrowStatus: "RELEASED" as const
-        },
-        {
-            id: "3",
-            title: "NFT Marketplace Backend",
-            client: "0xClient...",
-            worker: "0xWorker2...",
-            budget: "10.0",
-            status: "DISPUTED" as const,
-            escrowStatus: "DISPUTED" as const
-        }
-    ];
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-    const filteredContracts = contracts.filter(c => c.status === activeTab);
-
-    if (!address) {
-        return (
-            <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-                <Navbar />
-                <main className="flex-1 flex items-center justify-center">
-                    <p className="text-gray-600">Please connect your wallet to view dashboard.</p>
-                </main>
-                <Footer />
-            </div>
-        );
+  useEffect(() => {
+    if (mounted && !isConnected) {
+      router.push('/');
     }
+  }, [mounted, isConnected, router]);
 
-    return (
-        <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-            <Navbar />
+  if (!mounted || !isConnected) {
+    return null;
+  }
 
-            <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Contract Dashboard</h1>
+  return (
+    <div className="min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-white to-slate-100 dark:from-indigo-950/20 dark:via-zinc-950 dark:to-zinc-950">
+      <Navbar />
 
-                {/* Tabs */}
-                <div className="flex space-x-4 border-b border-gray-200 dark:border-gray-700 mb-8">
-                    <button
-                        onClick={() => setActiveTab("ACTIVE")}
-                        className={`py-2 px-4 font-medium text-sm flex items-center gap-2 border-b-2 transition ${activeTab === "ACTIVE"
-                                ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                            }`}
-                    >
-                        <LayoutDashboard className="w-4 h-4" /> Active Contracts
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("COMPLETED")}
-                        className={`py-2 px-4 font-medium text-sm flex items-center gap-2 border-b-2 transition ${activeTab === "COMPLETED"
-                                ? "border-green-600 text-green-600 dark:text-green-400"
-                                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                            }`}
-                    >
-                        <CheckSquare className="w-4 h-4" /> Completed
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("DISPUTED")}
-                        className={`py-2 px-4 font-medium text-sm flex items-center gap-2 border-b-2 transition ${activeTab === "DISPUTED"
-                                ? "border-orange-600 text-orange-600 dark:text-orange-400"
-                                : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                            }`}
-                    >
-                        <AlertCircle className="w-4 h-4" /> Disputed
-                    </button>
-                </div>
+      <main className="flex-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header with Mode Toggle */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white tracking-tight mb-2">
+                Dashboard
+              </h1>
+              <p className="text-base text-slate-600 dark:text-slate-400">
+                {mode === 'client' ? 'Manage your projects and hired workers' : 'Track your work and earnings'}
+              </p>
+            </div>
 
-                {/* Contract Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredContracts.map(contract => (
-                        <ContractCard
-                            key={contract.id}
-                            contract={contract}
-                            role="CLIENT" // Mock role
-                        />
-                    ))}
-                    {filteredContracts.length === 0 && (
-                        <div className="col-span-full text-center py-12 text-gray-500 dark:text-gray-400">
-                            No contracts found in this category.
-                        </div>
-                    )}
-                </div>
-            </main>
+            {/* Mode Toggle */}
+            <div className="inline-flex items-center bg-white dark:bg-zinc-900 rounded-xl p-1 border border-slate-200 dark:border-zinc-800 shadow-sm">
+              <button
+                onClick={() => setMode('client')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-150 ${
+                  mode === 'client'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                <Briefcase className="w-4 h-4" />
+                <span>Client</span>
+              </button>
+              <button
+                onClick={() => setMode('worker')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-150 ${
+                  mode === 'worker'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                <Wrench className="w-4 h-4" />
+                <span>Worker</span>
+              </button>
+            </div>
+          </div>
 
-            <Footer />
+          {/* Dashboard Content */}
+          {mode === 'client' ? <ClientDashboard /> : <WorkerDashboard />}
         </div>
-    );
+      </main>
+    </div>
+  );
 }

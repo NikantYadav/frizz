@@ -27,9 +27,9 @@ export default function NegotiationChat({ activeJobId, clientAddress, workerAddr
     const [showTemplates, setShowTemplates] = useState(false);
 
     const templates = [
-        "I can start immediately. My rate is 0.5 ETH/hr.",
+        "I can start immediately. My rate is $50/hr USDC.",
         "Could you provide more details on the smart contract requirements?",
-        "I propose a fixed price of 2 ETH for this milestone.",
+        "I propose a fixed price of $2000 USDC for this milestone.",
         "Please review the attached proposal."
     ];
 

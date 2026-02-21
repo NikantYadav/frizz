@@ -158,8 +158,8 @@ await jobMarketplace.connect(client).acceptWorkAndPay(1);
 ### Arbitration Constants (contracts/Arbitration.sol)
 
 ```solidity
-uint256 public constant STAKE_AMOUNT = 100 * 10**18; // 100 ARB tokens
-uint256 public constant ARBITRATION_FEE = 0.01 ether; // 0.01 ETH
+uint256 public constant STAKE_AMOUNT = 100 * 10**6; // 100 USDC
+uint256 public constant ARBITRATION_FEE = 10 * 10**6; // 10 USDC
 uint256 public constant INITIAL_JUROR_COUNT = 3;
 uint256 public constant APPEAL_JUROR_INCREMENT = 2;
 ```

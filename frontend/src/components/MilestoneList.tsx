@@ -47,7 +47,7 @@ export default function MilestoneList({ milestones, isClient, onApprove, onSubmi
                             <div>
                                 <p className="text-sm font-medium text-gray-900 dark:text-white">{milestone.description}</p>
                                 <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                    <DollarSign className="w-3 h-3" /> {milestone.amount} ETH
+                                    <DollarSign className="w-3 h-3" /> ${milestone.amount} USDC
                                 </p>
                             </div>
                         </div>

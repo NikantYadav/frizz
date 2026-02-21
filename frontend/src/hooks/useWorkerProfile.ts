@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { usePublicClient, useWalletClient } from 'wagmi';
 import { getWorkerRegistryContract } from '@/lib/contracts';
-import { parseEther } from 'viem';
 import { pinata } from '@/lib/pinata';
 
 // Optional: Base58 decode logic to convert CID to bytes32, but typically 
@@ -19,7 +18,7 @@ export function useWorkerProfile() {
         name: string,
         bio: string,
         skills: string,
-        hourlyRateEth: string,
+        hourlyRateUsdc: string,
         turnstileToken: string
     ) => {
         if (!walletClient || !publicClient) throw new Error('Wallet not connected');
@@ -32,7 +31,7 @@ export function useWorkerProfile() {
             const workerAddress = walletClient.account.address;
 
             // 1. Upload to Pinata IPFS
-            const profileMetadata = { name, bio, skills, hourlyRateEth };
+            const profileMetadata = { name, bio, skills, hourlyRateUsdc };
             const pinataRes = await pinata.upload.json(profileMetadata);
             const ipfsCid = pinataRes.IpfsHash;
 
@@ -47,7 +46,7 @@ export function useWorkerProfile() {
                 body: JSON.stringify({
                     workerAddress,
                     ipfsHash: ipfsHashBytes32,
-                    hourlyRate: hourlyRateEth,
+                    hourlyRate: hourlyRateUsdc,
                     turnstileToken
                 })
             });
@@ -61,11 +60,12 @@ export function useWorkerProfile() {
 
             // 4. Submit to smart contract
             const contract: any = getWorkerRegistryContract(walletClient);
-            const rateWei = parseEther(hourlyRateEth || '0');
+            // Convert USDC to 6 decimals (e.g., "100" -> 100000000)
+            const rateUsdc6Decimals = BigInt(Math.floor(parseFloat(hourlyRateUsdc || '0') * 1e6));
 
             const tx = await contract.write.registerProfile([
                 ipfsHashBytes32,
-                rateWei,
+                rateUsdc6Decimals,
                 BigInt(deadline),
                 signature
             ]);

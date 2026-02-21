@@ -169,8 +169,8 @@ JobMarketplace: 0x...
 ## 🔧 Configuration
 
 ### Arbitration Parameters
-- **Stake Amount**: 100 ARB tokens
-- **Arbitration Fee**: 0.01 ETH
+- **Stake Amount**: 100 USDC
+- **Arbitration Fee**: 10 USDC
 - **Initial Jurors**: 3
 - **Appeal Increment**: +2 jurors
 - **Slash Percentage**: 10% of stake
@@ -178,8 +178,8 @@ JobMarketplace: 0x...
 ### Modifying Parameters
 Edit constants in `contracts/Arbitration.sol`:
 ```solidity
-uint256 public constant STAKE_AMOUNT = 100 * 10**18;
-uint256 public constant ARBITRATION_FEE = 0.01 ether;
+uint256 public constant STAKE_AMOUNT = 100 * 10**6; // 100 USDC (6 decimals)
+uint256 public constant ARBITRATION_FEE = 10 * 10**6; // 10 USDC (6 decimals)
 uint256 public constant INITIAL_JUROR_COUNT = 3;
 uint256 public constant APPEAL_JUROR_INCREMENT = 2;
 ```

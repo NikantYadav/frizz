@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPublicClient, http, encodeAbiParameters, parseAbiParameters, keccak256, parseEther, isAddress } from 'viem';
+import { createPublicClient, http, encodeAbiParameters, parseAbiParameters, keccak256, isAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { hardhat } from 'viem/chains';
 import { getWorkerRegistryContract } from '@/lib/contracts';
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 
         // 4. Set Deadline (1 hour from now)
         const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-        const hourlyRateWei = parseEther(hourlyRate.toString());
+        const hourlyRateUsdc = BigInt(Math.floor(parseFloat(hourlyRate) * 1e6)); // Convert to 6 decimals
 
         // 5. Generate Signature
         const account = privateKeyToAccount(SIGNER_PRIVATE_KEY as `0x${string}`);
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
             message: {
                 worker: workerAddress as `0x${string}`,
                 ipfsHash: ipfsHash as `0x${string}`,
-                hourlyRate: hourlyRateWei,
+                hourlyRate: hourlyRateUsdc,
                 nonce: nonce,
                 deadline: deadline,
             }

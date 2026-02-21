@@ -31,7 +31,7 @@ export function useReputation(address?: string) {
                 completedJobs: Number(rep.completedJobs),
                 disputeWins: Number(rep.disputeWins),
                 disputeLosses: Number(rep.disputeLosses),
-                totalVolume: (Number(rep.totalVolume) / 1e18).toFixed(4),
+                totalVolume: (Number(rep.totalVolume) / 1e6).toFixed(2),
             });
         } catch (err: any) {
             console.error('Error fetching reputation:', err);

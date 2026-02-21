@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePublicClient } from 'wagmi';
-import { formatEther } from 'viem';
 import { getWorkerRegistryContract, getReputationContract } from '@/lib/contracts';
 import bs58 from 'bs58';
 
@@ -88,7 +87,7 @@ export function useWorkers(skillFilter?: string) {
                         name,
                         bio,
                         skills,
-                        hourlyRate: hourlyRate ? formatEther(hourlyRate) : '0',
+                        hourlyRate: hourlyRate ? (Number(hourlyRate) / 1e6).toFixed(2) : '0',
                         reputationScore: Number(rep.score),
                         completedJobs: Number(rep.completedJobs),
                         available: isActive,

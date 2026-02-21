@@ -1,15 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePublicClient } from 'wagmi';
+import { createPublicClient, http } from 'viem';
+import { hardhat } from 'wagmi/chains';
 import { getContract } from '@/lib/contracts';
 
 export function useJobs(activeTab: string, address?: string) {
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const publicClient = usePublicClient();
+  const wagmiPublicClient = usePublicClient();
+
+  // Create a fallback public client for when wallet isn't connected
+  const publicClient = wagmiPublicClient || createPublicClient({
+    chain: hardhat,
+    transport: http('http://127.0.0.1:8545'),
+  });
 
   const fetchJobs = useCallback(async () => {
-    if (!publicClient) return;
+    if (!publicClient) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -21,13 +32,45 @@ export function useJobs(activeTab: string, address?: string) {
 
       if (activeTab === 'browse') {
         // Get all active jobs
-        jobIds = await contract.read.getActiveJobs();
+        try {
+          jobIds = await contract.read.getActiveJobs();
+        } catch (err: any) {
+          // Handle empty array case - viem sometimes throws on empty returns
+          if (err.message?.includes('returned no data') || err.message?.includes('0x')) {
+            jobIds = [];
+          } else {
+            throw err;
+          }
+        }
       } else if (activeTab === 'my-jobs' && address) {
         // Get jobs posted by user
-        jobIds = await contract.read.getClientJobs([address]);
+        try {
+          jobIds = await contract.read.getClientJobs([address]);
+        } catch (err: any) {
+          if (err.message?.includes('returned no data') || err.message?.includes('0x')) {
+            jobIds = [];
+          } else {
+            throw err;
+          }
+        }
       } else if (activeTab === 'applications' && address) {
         // Get jobs user applied to
-        jobIds = await contract.read.getWorkerApplications([address]);
+        try {
+          jobIds = await contract.read.getWorkerApplications([address]);
+        } catch (err: any) {
+          if (err.message?.includes('returned no data') || err.message?.includes('0x')) {
+            jobIds = [];
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      // Handle empty job list
+      if (!jobIds || jobIds.length === 0) {
+        setJobs([]);
+        setLoading(false);
+        return;
       }
 
       // Fetch job details

@@ -3,7 +3,6 @@
 
 import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
 import { JobCard } from "@/components/JobCard";
 import { useJobs } from "@/hooks/useJobs";
 import { Search, Filter } from "lucide-react";
@@ -69,8 +68,6 @@ export default function JobsPage() {
                     </div>
                 )}
             </main>
-
-            <Footer />
         </div>
     );
 }

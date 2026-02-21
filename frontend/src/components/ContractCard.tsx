@@ -44,7 +44,7 @@ export default function ContractCard({ contract, role }: ContractCardProps) {
                     <p className="text-xs text-gray-500 uppercase font-semibold mb-1">Budget</p>
                     <p className="font-bold text-gray-900 dark:text-white flex items-center gap-1">
                         <DollarSign className="w-4 h-4 text-green-600" />
-                        {contract.budget} ETH
+                        ${(Number(contract.budget) / 1e6).toFixed(2)} USDC
                     </p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">

@@ -74,7 +74,7 @@ npm run dev
      - Description: "Need a React dashboard..."
      - Skills: "React, TypeScript, Web3"
      - Category: "Development"
-     - Budget: "5" (ETH)
+     - Budget: "5000" (USDC)
    - Click "Post Job"
    - Approve transaction in MetaMask
    - Wait for confirmation
@@ -280,7 +280,7 @@ Add these in Vercel dashboard:
 
 ### "Insufficient funds"
 
-**Solution**: Ensure account has enough ETH for gas + transaction value
+**Solution**: Ensure account has enough USDC tokens and ETH for gas fees
 
 ### "Network mismatch"
 

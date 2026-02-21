@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from "react";
-import { ethers } from "ethers";
 
 interface WorkerProfile {
     address: string;
@@ -56,7 +55,7 @@ export default function WorkerCard({ worker, onSelect }: { worker: WorkerProfile
 
             <div className="flex items-center justify-between pt-4 border-t border-gray-50">
                 <div>
-                    <span className="text-lg font-bold text-gray-900">{worker.hourlyRate} ETH</span>
+                    <span className="text-lg font-bold text-gray-900">${worker.hourlyRate} USDC</span>
                     <span className="text-gray-500 text-sm">/hr</span>
                 </div>
                 <button

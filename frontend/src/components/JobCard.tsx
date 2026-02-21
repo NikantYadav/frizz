@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Briefcase, DollarSign, Tag, Calendar, User } from 'lucide-react';
 import { JobDetailsModal } from './JobDetailsModal';
-import { formatEther } from 'ethers';
 
 interface Job {
   jobId: string;
@@ -74,7 +73,7 @@ export function JobCard({ job, activeTab }: JobCardProps) {
         <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center text-primary-600 font-semibold">
             <DollarSign className="h-5 w-5 mr-1" />
-            <span>{formatEther(job.budget)} ETH</span>
+            <span>${(Number(job.budget) / 1e6).toFixed(2)} USDC</span>
           </div>
           
           <button className="text-sm text-primary-600 hover:text-primary-700 font-medium">

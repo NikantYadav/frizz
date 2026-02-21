@@ -5,6 +5,9 @@ describe("JobMarketplace System", function () {
   let jobMarketplace: any;
   let arbitration: any;
   let arbitrationToken: any;
+  let reputationSystem: any;
+  let workerRegistry: any;
+  let negotiation: any;
   let deployer: any;
   let client: any;
   let worker: any;
@@ -15,6 +18,7 @@ describe("JobMarketplace System", function () {
   let STAKE_AMOUNT: any;
   let JOB_BUDGET: any;
   let ARBITRATION_FEE: any;
+  let CATEGORY_ID: number;
 
   beforeEach(async function () {
     const connection = await network.connect();
@@ -22,7 +26,8 @@ describe("JobMarketplace System", function () {
     
     STAKE_AMOUNT = ethers.parseEther("100");
     JOB_BUDGET = ethers.parseEther("5");
-    ARBITRATION_FEE = ethers.parseEther("0.01");
+    ARBITRATION_FEE = ethers.parseEther("10"); // 10 tokens as per Arbitration.sol
+    CATEGORY_ID = 1; // Development category
     
     [deployer, client, worker, juror1, juror2, juror3] = await ethers.getSigners();
 
@@ -31,23 +36,59 @@ describe("JobMarketplace System", function () {
     arbitrationToken = await ArbitrationToken.deploy(ethers.parseEther("1000000"));
     await arbitrationToken.waitForDeployment();
 
+    // Deploy mock oracle (you'll need to create this or use a real one)
+    const MockOracle = await ethers.getContractFactory("QuantumRandomnessOracle");
+    const mockOracle = await MockOracle.deploy();
+    await mockOracle.waitForDeployment();
+
     // Deploy Arbitration
     const Arbitration = await ethers.getContractFactory("Arbitration");
-    arbitration = await Arbitration.deploy(await arbitrationToken.getAddress());
+    arbitration = await Arbitration.deploy(
+      await arbitrationToken.getAddress(),
+      await mockOracle.getAddress()
+    );
     await arbitration.waitForDeployment();
+
+    // Deploy ReputationSystem
+    const ReputationSystem = await ethers.getContractFactory("ReputationSystem");
+    reputationSystem = await ReputationSystem.deploy();
+    await reputationSystem.waitForDeployment();
+
+    // Deploy WorkerRegistry
+    const WorkerRegistry = await ethers.getContractFactory("WorkerRegistry");
+    workerRegistry = await WorkerRegistry.deploy();
+    await workerRegistry.waitForDeployment();
+
+    // Deploy Negotiation
+    const Negotiation = await ethers.getContractFactory("Negotiation");
+    negotiation = await Negotiation.deploy();
+    await negotiation.waitForDeployment();
 
     // Deploy JobMarketplace
     const JobMarketplace = await ethers.getContractFactory("JobMarketplace");
-    jobMarketplace = await JobMarketplace.deploy(await arbitration.getAddress());
+    jobMarketplace = await JobMarketplace.deploy(
+      await arbitration.getAddress(),
+      await arbitrationToken.getAddress(),
+      await reputationSystem.getAddress(),
+      await workerRegistry.getAddress(),
+      await negotiation.getAddress()
+    );
     await jobMarketplace.waitForDeployment();
     
     // Set marketplace address in arbitration contract
     await arbitration.setMarketplace(await jobMarketplace.getAddress());
 
-    // Setup jurors
+    // Add category to arbitration
+    await arbitration.addCategory("Development");
+
+    // Setup jurors with tokens
     await arbitrationToken.transfer(juror1.address, STAKE_AMOUNT * 2n);
     await arbitrationToken.transfer(juror2.address, STAKE_AMOUNT * 2n);
     await arbitrationToken.transfer(juror3.address, STAKE_AMOUNT * 2n);
+
+    // Setup client and worker with arbitration tokens for disputes
+    await arbitrationToken.transfer(client.address, ARBITRATION_FEE * 10n);
+    await arbitrationToken.transfer(worker.address, ARBITRATION_FEE * 10n);
   });
 
   describe("Job Posting and Applications", function () {
@@ -56,13 +97,13 @@ describe("JobMarketplace System", function () {
         "Test Job",
         "Description",
         "Skills",
-        "Development",
+        CATEGORY_ID,
         JOB_BUDGET
       );
 
       await expect(tx)
         .to.emit(jobMarketplace, "JobPosted")
-        .withArgs(1, client.address, "Test Job", "Development", JOB_BUDGET);
+        .withArgs(1, client.address, "Test Job", CATEGORY_ID, JOB_BUDGET);
 
       const job = await jobMarketplace.getJob(1);
       expect(job.title).to.equal("Test Job");
@@ -75,7 +116,7 @@ describe("JobMarketplace System", function () {
         "Test Job",
         "Description",
         "Skills",
-        "Development",
+        CATEGORY_ID,
         JOB_BUDGET
       );
 
@@ -107,7 +148,7 @@ describe("JobMarketplace System", function () {
         "Test Job",
         "Description",
         "Skills",
-        "Development",
+        CATEGORY_ID,
         JOB_BUDGET
       );
       await jobMarketplace.connect(worker).applyToJob(1, "Hash1", "Hash2");
@@ -160,7 +201,7 @@ describe("JobMarketplace System", function () {
         "Test Job",
         "Description",
         "Skills",
-        "Development",
+        CATEGORY_ID,
         JOB_BUDGET
       );
       await jobMarketplace.connect(worker).applyToJob(1, "Hash1", "Hash2");
@@ -208,7 +249,7 @@ describe("JobMarketplace System", function () {
         "Test Job",
         "Description",
         "Skills",
-        "Development",
+        CATEGORY_ID,
         JOB_BUDGET
       );
       await jobMarketplace.connect(worker).applyToJob(1, "Hash1", "Hash2");
@@ -251,20 +292,20 @@ describe("JobMarketplace System", function () {
     beforeEach(async function () {
       // Setup jurors
       await arbitrationToken.connect(juror1).approve(await arbitration.getAddress(), STAKE_AMOUNT);
-      await arbitration.connect(juror1).stakeAsJuror(["Development"]);
+      await arbitration.connect(juror1).stakeAsJuror([CATEGORY_ID]);
 
       await arbitrationToken.connect(juror2).approve(await arbitration.getAddress(), STAKE_AMOUNT);
-      await arbitration.connect(juror2).stakeAsJuror(["Development"]);
+      await arbitration.connect(juror2).stakeAsJuror([CATEGORY_ID]);
 
       await arbitrationToken.connect(juror3).approve(await arbitration.getAddress(), STAKE_AMOUNT);
-      await arbitration.connect(juror3).stakeAsJuror(["Development"]);
+      await arbitration.connect(juror3).stakeAsJuror([CATEGORY_ID]);
 
       // Create job
       await jobMarketplace.connect(client).postJob(
         "Test Job",
         "Description",
         "Skills",
-        "Development",
+        CATEGORY_ID,
         JOB_BUDGET
       );
       await jobMarketplace.connect(worker).applyToJob(1, "Hash1", "Hash2");
@@ -276,9 +317,13 @@ describe("JobMarketplace System", function () {
     });
 
     it("Should allow raising a dispute", async function () {
-      const tx = await jobMarketplace.connect(client).raiseDispute(1, {
-        value: ARBITRATION_FEE
-      });
+      // Approve arbitration token transfer
+      await arbitrationToken.connect(client).approve(
+        await jobMarketplace.getAddress(),
+        ARBITRATION_FEE
+      );
+
+      const tx = await jobMarketplace.connect(client).raiseDispute(1);
 
       await expect(tx).to.emit(jobMarketplace, "DisputeRaised");
 
@@ -288,41 +333,101 @@ describe("JobMarketplace System", function () {
     });
 
     it("Should select jurors for dispute", async function () {
-      await jobMarketplace.connect(client).raiseDispute(1, {
-        value: ARBITRATION_FEE
-      });
+      await arbitrationToken.connect(client).approve(
+        await jobMarketplace.getAddress(),
+        ARBITRATION_FEE
+      );
+      await jobMarketplace.connect(client).raiseDispute(1);
 
       const job = await jobMarketplace.getJob(1);
+      
+      // Complete juror selection
+      await arbitration.completeJurorSelection(job.disputeId);
+      
       const selectedJurors = await arbitration.getSelectedJurors(job.disputeId);
       
       expect(selectedJurors.length).to.equal(3);
     });
 
     it("Should allow jurors to vote", async function () {
-      await jobMarketplace.connect(client).raiseDispute(1, {
-        value: ARBITRATION_FEE
-      });
+      await arbitrationToken.connect(client).approve(
+        await jobMarketplace.getAddress(),
+        ARBITRATION_FEE
+      );
+      await jobMarketplace.connect(client).raiseDispute(1);
 
       const job = await jobMarketplace.getJob(1);
       
-      await arbitration.connect(juror1).vote(job.disputeId, false);
-      await arbitration.connect(juror2).vote(job.disputeId, false);
+      // Complete juror selection
+      await arbitration.completeJurorSelection(job.disputeId);
       
-      const tx = await arbitration.connect(juror3).vote(job.disputeId, true);
-      await expect(tx).to.emit(arbitration, "VoteCast");
+      // Commit votes
+      const salt1 = "salt1";
+      const salt2 = "salt2";
+      const salt3 = "salt3";
+      
+      const commitHash1 = ethers.keccak256(
+        ethers.solidityPacked(["bool", "string", "address"], [false, salt1, juror1.address])
+      );
+      const commitHash2 = ethers.keccak256(
+        ethers.solidityPacked(["bool", "string", "address"], [false, salt2, juror2.address])
+      );
+      const commitHash3 = ethers.keccak256(
+        ethers.solidityPacked(["bool", "string", "address"], [true, salt3, juror3.address])
+      );
+      
+      await arbitration.connect(juror1).commitVote(job.disputeId, commitHash1);
+      await arbitration.connect(juror2).commitVote(job.disputeId, commitHash2);
+      const tx = await arbitration.connect(juror3).commitVote(job.disputeId, commitHash3);
+      await expect(tx).to.emit(arbitration, "VoteCommitted");
     });
 
     it("Should resolve dispute and pay winner", async function () {
-      await jobMarketplace.connect(client).raiseDispute(1, {
-        value: ARBITRATION_FEE
-      });
+      await arbitrationToken.connect(client).approve(
+        await jobMarketplace.getAddress(),
+        ARBITRATION_FEE
+      );
+      await jobMarketplace.connect(client).raiseDispute(1);
 
       const job = await jobMarketplace.getJob(1);
       
-      // Vote: 2 for worker, 1 for client
-      await arbitration.connect(juror1).vote(job.disputeId, false);
-      await arbitration.connect(juror2).vote(job.disputeId, false);
-      await arbitration.connect(juror3).vote(job.disputeId, true);
+      // Complete juror selection
+      await arbitration.completeJurorSelection(job.disputeId);
+      
+      // Commit votes: 2 for worker, 1 for client
+      const salt1 = "salt1";
+      const salt2 = "salt2";
+      const salt3 = "salt3";
+      
+      const commitHash1 = ethers.keccak256(
+        ethers.solidityPacked(["bool", "string", "address"], [false, salt1, juror1.address])
+      );
+      const commitHash2 = ethers.keccak256(
+        ethers.solidityPacked(["bool", "string", "address"], [false, salt2, juror2.address])
+      );
+      const commitHash3 = ethers.keccak256(
+        ethers.solidityPacked(["bool", "string", "address"], [true, salt3, juror3.address])
+      );
+      
+      await arbitration.connect(juror1).commitVote(job.disputeId, commitHash1);
+      await arbitration.connect(juror2).commitVote(job.disputeId, commitHash2);
+      await arbitration.connect(juror3).commitVote(job.disputeId, commitHash3);
+
+      // Fast forward past commit period
+      await network.provider.send("evm_increaseTime", [3 * 24 * 60 * 60 + 1]);
+      await network.provider.send("evm_mine");
+
+      // Reveal votes
+      await arbitration.connect(juror1).revealVote(job.disputeId, false, salt1);
+      await arbitration.connect(juror2).revealVote(job.disputeId, false, salt2);
+      await arbitration.connect(juror3).revealVote(job.disputeId, true, salt3);
+
+      // Fast forward past reveal period
+      await network.provider.send("evm_increaseTime", [3 * 24 * 60 * 60 + 1]);
+      await network.provider.send("evm_mine");
+
+      // Finalize dispute
+      await arbitration.finalizeDispute(job.disputeId);
 
       const workerBalanceBefore = await ethers.provider.getBalance(worker.address);
       
@@ -339,7 +444,7 @@ describe("JobMarketplace System", function () {
         "Test Job",
         "Description",
         "Skills",
-        "Development",
+        CATEGORY_ID,
         JOB_BUDGET
       );
       await jobMarketplace.connect(worker).applyToJob(1, "Hash1", "Hash2");
@@ -362,7 +467,7 @@ describe("JobMarketplace System", function () {
         "Test Job",
         "Description",
         "Skills",
-        "Development",
+        CATEGORY_ID,
         JOB_BUDGET
       );
 

@@ -28,28 +28,68 @@ async function main() {
   await arbitrationToken.waitForDeployment();
   console.log("✅ ArbitrationToken deployed:", await arbitrationToken.getAddress());
 
+  // Deploy mock oracle
+  const MockOracle = await ethers.getContractFactory("QuantumRandomnessOracle");
+  const mockOracle = await MockOracle.deploy();
+  await mockOracle.waitForDeployment();
+  console.log("✅ MockOracle deployed:", await mockOracle.getAddress());
+
   const Arbitration = await ethers.getContractFactory("Arbitration");
-  const arbitration = await Arbitration.deploy(await arbitrationToken.getAddress());
+  const arbitration = await Arbitration.deploy(
+    await arbitrationToken.getAddress(),
+    await mockOracle.getAddress()
+  );
   await arbitration.waitForDeployment();
   console.log("✅ Arbitration deployed:", await arbitration.getAddress());
 
+  // Deploy other required contracts
+  const ReputationSystem = await ethers.getContractFactory("ReputationSystem");
+  const reputationSystem = await ReputationSystem.deploy();
+  await reputationSystem.waitForDeployment();
+  console.log("✅ ReputationSystem deployed:", await reputationSystem.getAddress());
+
+  const WorkerRegistry = await ethers.getContractFactory("WorkerRegistry");
+  const workerRegistry = await WorkerRegistry.deploy();
+  await workerRegistry.waitForDeployment();
+  console.log("✅ WorkerRegistry deployed:", await workerRegistry.getAddress());
+
+  const Negotiation = await ethers.getContractFactory("Negotiation");
+  const negotiation = await Negotiation.deploy();
+  await negotiation.waitForDeployment();
+  console.log("✅ Negotiation deployed:", await negotiation.getAddress());
+
   const JobMarketplace = await ethers.getContractFactory("JobMarketplace");
-  const jobMarketplace = await JobMarketplace.deploy(await arbitration.getAddress());
+  const jobMarketplace = await JobMarketplace.deploy(
+    await arbitration.getAddress(),
+    await arbitrationToken.getAddress(),
+    await reputationSystem.getAddress(),
+    await workerRegistry.getAddress(),
+    await negotiation.getAddress()
+  );
   await jobMarketplace.waitForDeployment();
   console.log("✅ JobMarketplace deployed:", await jobMarketplace.getAddress());
   
   // Set marketplace address in arbitration contract
   await arbitration.setMarketplace(await jobMarketplace.getAddress());
   console.log("✅ Marketplace address set in Arbitration contract");
+
+  // Add categories
+  await arbitration.addCategory("Development");
+  await arbitration.addCategory("Design");
+  await arbitration.addCategory("Marketing");
+  await arbitration.addCategory("Writing");
+  console.log("✅ Categories added");
   console.log();
 
-  // Distribute tokens to jurors
-  console.log("💰 Distributing tokens to jurors...");
+  // Distribute tokens to jurors and client
+  console.log("💰 Distributing tokens...");
   const stakeAmount = ethers.parseEther("100");
+  const arbitrationFee = ethers.parseEther("10");
   
   await arbitrationToken.transfer(juror1.address, stakeAmount * 2n);
   await arbitrationToken.transfer(juror2.address, stakeAmount * 2n);
   await arbitrationToken.transfer(juror3.address, stakeAmount * 2n);
+  await arbitrationToken.transfer(client.address, arbitrationFee * 10n);
   console.log("✅ Tokens distributed\n");
 
   // Jurors stake tokens
@@ -58,19 +98,19 @@ async function main() {
   const tokenAsJuror1 = arbitrationToken.connect(juror1);
   await tokenAsJuror1.approve(await arbitration.getAddress(), stakeAmount);
   const arbitrationAsJuror1 = arbitration.connect(juror1);
-  await arbitrationAsJuror1.stakeAsJuror(["Development", "Design"]);
+  await arbitrationAsJuror1.stakeAsJuror([1, 2]); // Development, Design
   console.log("✅ Juror 1 staked");
 
   const tokenAsJuror2 = arbitrationToken.connect(juror2);
   await tokenAsJuror2.approve(await arbitration.getAddress(), stakeAmount);
   const arbitrationAsJuror2 = arbitration.connect(juror2);
-  await arbitrationAsJuror2.stakeAsJuror(["Development", "Marketing"]);
+  await arbitrationAsJuror2.stakeAsJuror([1, 3]); // Development, Marketing
   console.log("✅ Juror 2 staked");
 
   const tokenAsJuror3 = arbitrationToken.connect(juror3);
   await tokenAsJuror3.approve(await arbitration.getAddress(), stakeAmount);
   const arbitrationAsJuror3 = arbitration.connect(juror3);
-  await arbitrationAsJuror3.stakeAsJuror(["Development", "Writing"]);
+  await arbitrationAsJuror3.stakeAsJuror([1, 4]); // Development, Writing
   console.log("✅ Juror 3 staked\n");
 
   // Client posts a job
@@ -81,7 +121,7 @@ async function main() {
     "Build a DeFi Dashboard",
     "Need a React dashboard for DeFi analytics",
     "React, TypeScript, Web3.js",
-    "Development",
+    1, // Development category ID
     ethers.parseEther("5")
   );
   const receipt = await tx.wait();
@@ -153,7 +193,7 @@ async function main() {
     "Design Landing Page",
     "Need a modern landing page design",
     "Figma, UI/UX",
-    "Development",
+    2, // Design category ID
     ethers.parseEther("3")
   );
   const receipt2 = await tx2.wait();
@@ -187,16 +227,23 @@ async function main() {
 
   // Client raises dispute
   console.log("⚠️ Client raising dispute...");
-  const arbitrationFee = ethers.parseEther("0.01");
-  await marketplaceAsClient.raiseDispute(jobId2, { value: arbitrationFee });
+  const arbitrationFee = ethers.parseEther("10"); // 10 tokens
+  const tokenAsClient = arbitrationToken.connect(client);
+  await tokenAsClient.approve(await jobMarketplace.getAddress(), arbitrationFee);
+  await marketplaceAsClient.raiseDispute(jobId2);
   console.log("✅ Dispute raised\n");
 
   // Get job details
   const job2 = await jobMarketplace.getJob(jobId2);
   console.log("📊 Dispute ID:", job2.disputeId.toString());
 
-  // Jurors vote
-  console.log("🗳️ Jurors voting...");
+  // Complete juror selection
+  console.log("🎲 Completing juror selection...");
+  await arbitration.completeJurorSelection(job2.disputeId);
+  console.log("✅ Juror selection completed");
+
+  // Jurors vote (using commit-reveal)
+  console.log("🗳️ Jurors committing votes...");
   const selectedJurors = await arbitration.getSelectedJurors(job2.disputeId);
   console.log("Selected jurors:", selectedJurors.length);
 

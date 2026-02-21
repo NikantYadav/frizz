@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./JobEscrow.sol";
 import "./Arbitration.sol";
 import "./ReputationSystem.sol";
@@ -16,6 +17,8 @@ import "./Negotiation.sol";
  */
 contract JobMarketplace is ReentrancyGuard, Ownable {
     Arbitration public immutable arbitration;
+    IERC20 public immutable usdc; // USDC for arbitration fees
+    address public constant USDC_ADDRESS = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     ReputationSystem public immutable reputationSystem;
     WorkerRegistry public immutable workerRegistry;
     Negotiation public immutable negotiation;
@@ -26,7 +29,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         string title;
         string description;
         string skills;
-        string category; // For juror filtering
+        uint256 categoryId; // Category ID for arbitration juror filtering
         uint256 budget;
         bool isActive;
         bool isCompleted;
@@ -56,7 +59,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         uint256 indexed jobId,
         address indexed client,
         string title,
-        string category,
+        uint256 categoryId,
         uint256 budget
     );
     event ApplicationSubmitted(uint256 indexed jobId, address indexed worker);
@@ -91,6 +94,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         address _negotiation
     ) Ownable(msg.sender) {
         arbitration = Arbitration(_arbitration);
+        usdc = IERC20(USDC_ADDRESS);
         reputationSystem = ReputationSystem(_reputationSystem);
         workerRegistry = WorkerRegistry(_workerRegistry);
         negotiation = Negotiation(_negotiation);
@@ -103,12 +107,11 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         string memory _title,
         string memory _description,
         string memory _skills,
-        string memory _category,
+        uint256 _categoryId,
         uint256 _budget
     ) external returns (uint256) {
         require(_budget > 0, "Budget must be positive");
         require(bytes(_title).length > 0, "Title required");
-        require(bytes(_category).length > 0, "Category required");
 
         jobCounter++;
 
@@ -118,7 +121,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
             title: _title,
             description: _description,
             skills: _skills,
-            category: _category,
+            categoryId: _categoryId,
             budget: _budget,
             isActive: true,
             isCompleted: false,
@@ -132,7 +135,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
 
         clientJobs[msg.sender].push(jobCounter);
 
-        emit JobPosted(jobCounter, msg.sender, _title, _category, _budget);
+        emit JobPosted(jobCounter, msg.sender, _title, _categoryId, _budget);
         return jobCounter;
     }
 
@@ -140,7 +143,8 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
      * @dev Create job from negotiation
      */
     function createJobFromNegotiation(
-        uint256 _negotiationId
+        uint256 _negotiationId,
+        uint256 _categoryId
     ) external payable nonReentrant returns (uint256) {
         Negotiation.Offer memory offer = negotiation.getOffer(_negotiationId);
         require(
@@ -158,7 +162,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
             title: offer.title,
             description: "Created from negotiation", // Could fetch terms hash
             skills: "",
-            category: "Negotiated",
+            categoryId: _categoryId,
             budget: offer.budget,
             isActive: true,
             isCompleted: false,
@@ -187,7 +191,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
             jobCounter,
             msg.sender,
             offer.title,
-            "Negotiated",
+            _categoryId,
             offer.budget
         );
         emit WorkerSelected(jobCounter, offer.worker);
@@ -385,7 +389,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
     /**
      * @dev Raise a dispute (can be called by client or worker)
      */
-    function raiseDispute(uint256 _jobId) external payable nonReentrant {
+    function raiseDispute(uint256 _jobId) external nonReentrant {
         Job storage job = jobs[_jobId];
         require(
             msg.sender == job.client || msg.sender == job.selectedWorker,
@@ -395,17 +399,28 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
         require(!job.isDisputed, "Already disputed");
         require(!job.isCompleted, "Job already completed");
 
+        // Transfer USDC arbitration fee from disputing party to marketplace
+        // Marketplace will then approve Arbitration contract to pull the fee
+        uint256 arbitrationFee = arbitration.ARBITRATION_FEE();
+        require(
+            usdc.transferFrom(msg.sender, address(this), arbitrationFee),
+            "USDC arbitration fee transfer failed"
+        );
+        
+        // Approve Arbitration contract to pull the USDC fee
+        usdc.approve(address(arbitration), arbitrationFee);
+
         job.isDisputed = true;
 
         // Mark escrow as disputed
         JobEscrow(job.escrowContract).raiseDispute();
 
         // Create dispute in arbitration contract
-        uint256 disputeId = arbitration.createDispute{value: msg.value}(
+        uint256 disputeId = arbitration.createDispute(
             _jobId,
             job.client,
             job.selectedWorker,
-            job.category,
+            job.categoryId,
             job.budget
         );
 
@@ -542,15 +557,14 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
      * @dev Filter jobs by category
      */
     function getJobsByCategory(
-        string memory _category
+        uint256 _categoryId
     ) external view returns (uint256[] memory) {
         uint256 matchCount = 0;
         for (uint256 i = 1; i <= jobCounter; i++) {
             if (
                 jobs[i].isActive &&
                 jobs[i].selectedWorker == address(0) &&
-                keccak256(bytes(jobs[i].category)) ==
-                keccak256(bytes(_category))
+                jobs[i].categoryId == _categoryId
             ) {
                 matchCount++;
             }
@@ -562,8 +576,7 @@ contract JobMarketplace is ReentrancyGuard, Ownable {
             if (
                 jobs[i].isActive &&
                 jobs[i].selectedWorker == address(0) &&
-                keccak256(bytes(jobs[i].category)) ==
-                keccak256(bytes(_category))
+                jobs[i].categoryId == _categoryId
             ) {
                 matchedJobs[index] = i;
                 index++;
